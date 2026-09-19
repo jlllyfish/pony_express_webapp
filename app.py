@@ -6,7 +6,7 @@ load_dotenv()  # doit précéder les imports ci-dessous : ils lisent os.environ 
 
 from flask import Flask, jsonify, render_template, request, send_file
 
-from service.dn import envoyer_kit_pedagogique
+from service.dn import envoyer_kit_pedagogique, synchroniser_statuts_pj_avec_dn
 from service.dossiers import list_dossiers, list_etablissements
 from service.generation import generate_kit_pedagogique
 
@@ -38,6 +38,16 @@ def api_dossiers():
             "etablissements": list_etablissements(dossiers),
         }
     )
+
+
+@app.post("/api/dossiers/sync-dn")
+def api_sync_dn():
+    """Vérifie en un seul passage groupé si le statut Grist correspond à la réalité DN, corrige si besoin."""
+    try:
+        resultat = synchroniser_statuts_pj_avec_dn()
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": str(exc)}), 500
+    return jsonify(resultat)
 
 
 @app.post("/api/kits/generate")

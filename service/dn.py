@@ -1,7 +1,6 @@
 """
 Envoi du kit pédagogique vers DN : upload en pièce jointe de l'annotation
-privée, coche "envoyé par l'ENSFEA", ajout du label "Kit péda envoyé (ENSFEA)",
-et écriture directe du statut dans Grist (sans attendre la sync OTP).
+privée, coche "envoyé par l'ENSFEA", ajout du label "Kit péda envoyé (ENSFEA)".
 
 Reprend telle quelle la logique validée dans scripts/test_envoi_dn.py (Phase 3).
 """
@@ -136,25 +135,178 @@ def _ajouter_label(dossier_id: str) -> None:
         raise RuntimeError(errors)
 
 
-def _marquer_envoye_dans_grist(grist_row_id) -> None:
+def _supprimer_label(dossier_id: str) -> None:
+    query = """
+    mutation dossierSupprimerLabel($input: DossierSupprimerLabelInput!) {
+      dossierSupprimerLabel(input: $input) {
+        errors { message }
+      }
+    }
+    """
+    variables = {"input": {"dossierId": dossier_id, "labelId": LABEL_ID}}
+    payload = _graphql(query, variables)["dossierSupprimerLabel"]
+    errors = payload.get("errors") or []
+    if errors:
+        raise RuntimeError(errors)
+
+
+def _get_current_files(dossier_number, annotation_id: str) -> list:
+    """Interroge DN pour savoir si un fichier est déjà attaché sur ce champ PJ, à l'instant présent."""
+    query = """
+    query($number: Int!) {
+      dossier(number: $number) {
+        annotations {
+          id
+          ... on PieceJustificativeChamp { files { filename } }
+        }
+      }
+    }
+    """
+    data = _graphql(query, {"number": int(dossier_number)})
+    for a in data["dossier"]["annotations"]:
+        if a["id"] == annotation_id:
+            return a.get("files") or []
+    return []
+
+
+def _marquer_envoye_dans_grist(grist_row_id, envoye: bool) -> None:
     """Écrit directement le statut d'envoi dans Grist, sans attendre le prochain cycle de sync OTP."""
     grist = GristService(kit.GRIST_DOC_ID, kit.GRIST_TEAM_SITE, kit.GRIST_SERVER)
     grist.update_grist_data(
         kit.GRIST_TABLE,
-        [{"id": grist_row_id, "contrat_pedagogique_envoye_par_l_ensfea": True}],
+        [{"id": grist_row_id, "contrat_pedagogique_envoye_par_l_ensfea": envoye}],
     )
 
 
+DEMARCHE_NUMBER = 128447
+ANNOTATION_ID_PJ_PEDAGOGIQUE = (
+    "Q2hhbXAtNjk2OTQ5Ng=="  # "Contrat pédagogique" (le vrai champ PJ)
+)
+
+
+def fetch_statuts_pj_dn() -> dict:
+    """Interroge DN en un seul passage paginé pour savoir, pour chaque dossier
+    de la démarche, si un fichier est réellement attaché au champ PJ kit
+    pédagogique. Retourne {dossier_number (str): {"a_un_fichier": bool, "dossier_id": str}}.
+    """
+    query = """
+    query($demarcheNumber: Int!, $after: String) {
+      demarche(number: $demarcheNumber) {
+        dossiers(first: 100, after: $after) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            id
+            number
+            annotations {
+              id
+              ... on PieceJustificativeChamp { files { filename } }
+            }
+          }
+        }
+      }
+    }
+    """
+    resultats = {}
+    after = None
+    while True:
+        data = _graphql(query, {"demarcheNumber": DEMARCHE_NUMBER, "after": after})
+        page = data["demarche"]["dossiers"]
+        for node in page["nodes"]:
+            annotation = next(
+                (
+                    a
+                    for a in node["annotations"]
+                    if a["id"] == ANNOTATION_ID_PJ_PEDAGOGIQUE
+                ),
+                None,
+            )
+            a_un_fichier = bool(annotation and annotation.get("files"))
+            resultats[str(node["number"])] = {
+                "a_un_fichier": a_un_fichier,
+                "dossier_id": node["id"],
+            }
+        if not page["pageInfo"]["hasNextPage"]:
+            break
+        after = page["pageInfo"]["endCursor"]
+    return resultats
+
+
+def synchroniser_statuts_pj_avec_dn() -> dict:
+    """Compare le statut réel des PJ dans DN avec Grist pour tous les dossiers
+    de la démarche, et corrige Grist en cas d'écart (DN fait foi). Si le
+    fichier a disparu côté DN, décoche aussi l'annotation "envoyé" et retire
+    le label côté DN, pour que DN reste cohérent avec lui-même.
+    """
+    statuts_dn = fetch_statuts_pj_dn()
+
+    grist = GristService(kit.GRIST_DOC_ID, kit.GRIST_TEAM_SITE, kit.GRIST_SERVER)
+    annotations = grist.get_table_records(kit.GRIST_TABLE)
+
+    corriges = []
+    updates = []
+    erreurs = {}
+    for row in annotations:
+        dossier_number = row.get("dossier_number")
+        info = statuts_dn.get(dossier_number)
+        if not info:
+            continue
+
+        a_un_fichier = info["a_un_fichier"]
+        valeur_grist = bool(row.get("contrat_pedagogique_envoye_par_l_ensfea"))
+        if a_un_fichier == valeur_grist:
+            continue
+
+        updates.append(
+            {"id": row["id"], "contrat_pedagogique_envoye_par_l_ensfea": a_un_fichier}
+        )
+        corriges.append(dossier_number)
+
+        if not a_un_fichier:
+            dossier_id = info["dossier_id"]
+            try:
+                _modifier_annotations(
+                    dossier_id,
+                    [
+                        {
+                            "id": ANNOTATION_ID_ENVOYE_PEDAGOGIQUE,
+                            "value": {"checkbox": False},
+                        }
+                    ],
+                )
+                _supprimer_label(dossier_id)
+            except Exception as exc:  # noqa: BLE001
+                erreurs[dossier_number] = str(exc)
+
+    if updates:
+        grist.update_grist_data(kit.GRIST_TABLE, updates)
+
+    return {"verifies": len(statuts_dn), "corriges": corriges, "erreurs": erreurs}
+
+
 def envoyer_kit_pedagogique(dossier_number, pdf_path: str) -> None:
-    """Envoie le kit pédagogique généré vers DN pour un dossier : PJ + coche + label + statut Grist."""
+    """Envoie le kit pédagogique généré vers DN pour un dossier : PJ + coche + label + statut Grist.
+
+    Bloque l'envoi si un fichier est déjà attaché côté DN (vérifié en direct,
+    pas via le statut Grist qui peut être périmé) : l'API DN n'a aucune
+    mutation de suppression de pièce jointe, donc renvoyer sans avoir
+    supprimé l'ancien fichier ajouterait un doublon plutôt que de le
+    remplacer. Nettoyage : à la main, côté interface instructeur DN.
+    """
     dossier_id, annotation_id, grist_row_id = _get_dossier_and_annotation_ids(
         dossier_number
     )
 
-    # Vide l'ancienne PJ avant de réattacher (sinon accumulation, cf. Phase 3)
-    _modifier_annotations(
-        dossier_id, [{"id": annotation_id, "value": {"pieceJustificative": []}}]
-    )
+    fichiers_existants = _get_current_files(dossier_number, annotation_id)
+    if fichiers_existants:
+        raise RuntimeError(
+            f"Un fichier est déjà attaché dans DN ({fichiers_existants[0]['filename']}). "
+            "Supprime-le manuellement côté instructeur DN avant de renvoyer — "
+            "l'API ne permet pas de remplacer une pièce jointe existante."
+        )
+
+    # Confirmé vide côté DN : Grist peut être remis à jour même avant l'envoi
+    # (utile si l'envoi échoue plus loin : le statut reste honnête).
+    _marquer_envoye_dans_grist(grist_row_id, False)
 
     signed_blob_id = _create_direct_upload(pdf_path, dossier_id)
 
@@ -168,4 +320,4 @@ def envoyer_kit_pedagogique(dossier_number, pdf_path: str) -> None:
 
     _ajouter_label(dossier_id)
 
-    _marquer_envoye_dans_grist(grist_row_id)
+    _marquer_envoye_dans_grist(grist_row_id, True)

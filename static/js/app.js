@@ -15,6 +15,7 @@
     btnGenerate: document.getElementById("btn-generate"),
     selCount: document.getElementById("sel-count"),
     btnRefresh: document.getElementById("btn-refresh"),
+    btnSyncDn: document.getElementById("btn-sync-dn"),
     btnSend: document.getElementById("btn-send"),
     toggleSelectAll: document.getElementById("toggle-select-all"),
     toast: document.getElementById("toast"),
@@ -130,6 +131,7 @@
     const etabIcon = `<svg width="14" height="14" class="etab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
       </svg>`;
+
     const iconNotSent = `<svg width="16" height="16" class="check-icon" viewBox="0 0 20 20" fill="none">
         <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6"/>
       </svg>`;
@@ -168,7 +170,7 @@
         </div>
         ${downloadLink}
         <div class="card-status-bar ${statusClass}"></div>
-                <p class="card-etablissement">${etabIcon}${dossier.etablissement}</p>
+        <p class="card-etablissement">${etabIcon}${dossier.etablissement}</p>
         <label class="card-select">
           <input type="checkbox" data-dossier="${dossier.dossier_number}" ${checked}
                  aria-label="Sélectionner le dossier ${dossier.dossier_number}">
@@ -369,10 +371,41 @@
     updateSelectionUI();
   }
 
+  async function syncWithDn() {
+    el.btnSyncDn.disabled = true;
+    showToastProgress("Vérification avec DN en cours…", 0, 1);
+
+    try {
+      const res = await fetch("/api/dossiers/sync-dn", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "erreur inconnue");
+
+      showToastResult("Vérification terminée", 1, 1, 0);
+      if (data.corriges && data.corriges.length) {
+        alert(
+          `${data.corriges.length} dossier(s) corrigé(s) : #${data.corriges.join(", #")}`,
+        );
+      }
+      if (data.erreurs && Object.keys(data.erreurs).length) {
+        const detail = Object.entries(data.erreurs)
+          .map(([n, msg]) => `#${n} : ${msg}`)
+          .join("\n");
+        alert(`Nettoyage DN (coche/label) en échec pour :\n${detail}`);
+      }
+      await loadDossiers(true);
+    } catch (err) {
+      showToastResult("Échec de la vérification", 0, 1, 1);
+      alert("Erreur : " + err.message);
+    } finally {
+      el.btnSyncDn.disabled = false;
+    }
+  }
+
   el.filterEtab.addEventListener("change", render);
   el.search.addEventListener("input", render);
   el.btnGenerate.addEventListener("click", generateSelection);
   el.btnRefresh.addEventListener("click", () => loadDossiers(true));
+  el.btnSyncDn.addEventListener("click", syncWithDn);
   el.btnSend.addEventListener("click", sendSelection);
   el.toastClose.addEventListener("click", hideToast);
   el.toggleSelectAll.addEventListener("change", () => {
