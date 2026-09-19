@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "pony-express-webapp"
+version = "0.1.0"
+description = "Interface de génération et d'envoi des kits Erasmus+"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.13"
+flask = "^3.0"
+python-dotenv = "^1.0"
+pony_express = { path = "vendor/pony_express", develop = true }
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

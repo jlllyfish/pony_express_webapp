@@ -1,0 +1,171 @@
+"""
+Envoi du kit pédagogique vers DN : upload en pièce jointe de l'annotation
+privée, coche "envoyé par l'ENSFEA", ajout du label "Kit péda envoyé (ENSFEA)",
+et écriture directe du statut dans Grist (sans attendre la sync OTP).
+
+Reprend telle quelle la logique validée dans scripts/test_envoi_dn.py (Phase 3).
+"""
+
+import base64
+import hashlib
+import json
+import mimetypes
+import os
+
+import requests
+from pony_express.service.grist import GristService
+from pony_express.templates import contrat_pedagogique as kit
+
+API_URL = os.environ.get(
+    "DN_API_URL", "https://demarche.numerique.gouv.fr/api/v2/graphql"
+)
+API_TOKEN = os.environ["DN_API_TOKEN"]
+INSTRUCTEUR_ID = os.environ["INSTRUCTEUR_ID"]
+
+TABLE_DOSSIERS = "Demarche_128447_dossiers"
+COLONNE_DOSSIER_ID = "dossier_id"
+COLONNE_ANNOTATION_ID = "contrat_pedagogique_id"
+
+# Stables au niveau de la démarche (mêmes pour tous les dossiers, vérifié via GraphiQL)
+ANNOTATION_ID_ENVOYE_PEDAGOGIQUE = "Q2hhbXAtNjk2OTQ5NQ=="
+LABEL_ID = "TGFiZWwtNTMxOTMx"  # "Kit péda envoyé (ENSFEA)"
+
+HEADERS = {"Content-Type": "application/json", "Authorization": f"Bearer {API_TOKEN}"}
+
+
+def _graphql(query: str, variables: dict) -> dict:
+    resp = requests.post(
+        API_URL, headers=HEADERS, json={"query": query, "variables": variables}
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if "errors" in data:
+        raise RuntimeError(data["errors"])
+    return data["data"]
+
+
+def _get_dossier_and_annotation_ids(dossier_number) -> tuple:
+    grist = GristService(kit.GRIST_DOC_ID, kit.GRIST_TEAM_SITE, kit.GRIST_SERVER)
+
+    dossiers = grist.get_table_records(TABLE_DOSSIERS)
+    dossier_row = next(
+        (r for r in dossiers if r.get("dossier_number") == str(dossier_number)), None
+    )
+    if not dossier_row:
+        raise ValueError(f"Dossier {dossier_number} introuvable dans {TABLE_DOSSIERS}")
+    dossier_id = dossier_row[COLONNE_DOSSIER_ID]
+
+    annotations = grist.get_table_records(kit.GRIST_TABLE)
+    annotation_row = next(
+        (r for r in annotations if r.get("dossier_number") == str(dossier_number)), None
+    )
+    if not annotation_row:
+        raise ValueError(f"Dossier {dossier_number} introuvable dans {kit.GRIST_TABLE}")
+    annotation_id = annotation_row[COLONNE_ANNOTATION_ID]
+    grist_row_id = annotation_row["id"]
+
+    return dossier_id, annotation_id, grist_row_id
+
+
+def _create_direct_upload(file_path: str, dossier_id: str) -> str:
+    filename = os.path.basename(file_path)
+    content_type = mimetypes.guess_type(filename)[0] or "application/pdf"
+    with open(file_path, "rb") as f:
+        content = f.read()
+    checksum = base64.b64encode(hashlib.md5(content).digest()).decode()
+
+    query = """
+    mutation createDirectUpload($input: CreateDirectUploadInput!) {
+      createDirectUpload(input: $input) {
+        directUpload { url headers blobId signedBlobId }
+      }
+    }
+    """
+    variables = {
+        "input": {
+            "filename": filename,
+            "byteSize": len(content),
+            "checksum": checksum,
+            "contentType": content_type,
+            "dossierId": dossier_id,
+        }
+    }
+    direct_upload = _graphql(query, variables)["createDirectUpload"]["directUpload"]
+
+    put_headers = json.loads(direct_upload["headers"])
+    put_resp = requests.put(direct_upload["url"], data=content, headers=put_headers)
+    put_resp.raise_for_status()
+
+    return direct_upload["signedBlobId"]
+
+
+def _modifier_annotations(dossier_id: str, annotations: list) -> list:
+    query = """
+    mutation dossierModifierAnnotations($input: DossierModifierAnnotationsInput!) {
+      dossierModifierAnnotations(input: $input) {
+        annotations { id stringValue }
+        errors { message }
+      }
+    }
+    """
+    variables = {
+        "input": {
+            "dossierId": dossier_id,
+            "instructeurId": INSTRUCTEUR_ID,
+            "annotations": annotations,
+        }
+    }
+    payload = _graphql(query, variables)["dossierModifierAnnotations"]
+    if payload.get("errors"):
+        raise RuntimeError(payload["errors"])
+    return payload["annotations"]
+
+
+def _ajouter_label(dossier_id: str) -> None:
+    query = """
+    mutation dossierAjouterLabel($input: DossierAjouterLabelInput!) {
+      dossierAjouterLabel(input: $input) {
+        errors { message }
+      }
+    }
+    """
+    variables = {"input": {"dossierId": dossier_id, "labelId": LABEL_ID}}
+    payload = _graphql(query, variables)["dossierAjouterLabel"]
+    errors = payload.get("errors") or []
+    if errors and not all("déjà associé" in e["message"] for e in errors):
+        raise RuntimeError(errors)
+
+
+def _marquer_envoye_dans_grist(grist_row_id) -> None:
+    """Écrit directement le statut d'envoi dans Grist, sans attendre le prochain cycle de sync OTP."""
+    grist = GristService(kit.GRIST_DOC_ID, kit.GRIST_TEAM_SITE, kit.GRIST_SERVER)
+    grist.update_grist_data(
+        kit.GRIST_TABLE,
+        [{"id": grist_row_id, "contrat_pedagogique_envoye_par_l_ensfea": True}],
+    )
+
+
+def envoyer_kit_pedagogique(dossier_number, pdf_path: str) -> None:
+    """Envoie le kit pédagogique généré vers DN pour un dossier : PJ + coche + label + statut Grist."""
+    dossier_id, annotation_id, grist_row_id = _get_dossier_and_annotation_ids(
+        dossier_number
+    )
+
+    # Vide l'ancienne PJ avant de réattacher (sinon accumulation, cf. Phase 3)
+    _modifier_annotations(
+        dossier_id, [{"id": annotation_id, "value": {"pieceJustificative": []}}]
+    )
+
+    signed_blob_id = _create_direct_upload(pdf_path, dossier_id)
+
+    _modifier_annotations(
+        dossier_id,
+        [
+            {"id": annotation_id, "value": {"pieceJustificative": [signed_blob_id]}},
+            {"id": ANNOTATION_ID_ENVOYE_PEDAGOGIQUE, "value": {"checkbox": True}},
+        ],
+    )
+
+    _ajouter_label(dossier_id)
+
+    _marquer_envoye_dans_grist(grist_row_id)
