@@ -124,13 +124,12 @@
         ? `Trajet ${dossier.date_trajet_aller || "?"} → ${dossier.date_trajet_retour || "?"}`
         : "";
 
-    const calendarIcon = `<svg width="14" height="14" class="date-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
-        <rect x="2.5" y="4" width="15" height="13" rx="2"/><path d="M6.5 2v4M13.5 2v4M2.5 8h15"/>
+    const calendarIcon = `<svg width="14" height="14" class="date-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/>
       </svg>`;
-    const buildingIcon = `<svg width="14" height="14" class="etab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
-        <path d="M4 17V5.5L10 3l6 2.5V17"/><path d="M4 17h12M7.5 8h1M11.5 8h1M7.5 11.5h1M11.5 11.5h1M8.5 17v-3h3v3"/>
+    const etabIcon = `<svg width="14" height="14" class="etab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
       </svg>`;
-
     const iconNotSent = `<svg width="16" height="16" class="check-icon" viewBox="0 0 20 20" fill="none">
         <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6"/>
       </svg>`;
@@ -144,7 +143,11 @@
         <div class="card-avatar">${initiales(dossier)}</div>
         <div class="card-body">
           <div class="card-header-row">
-            <h3 class="card-title">${dossier.nom_complet || "Nom inconnu"}</h3>
+            <h3 class="card-title">${
+              dossier.nom || dossier.prenom
+                ? `${dossier.nom || ""}<br>${dossier.prenom || ""}`
+                : "Nom inconnu"
+            }</h3>
             <span class="pill-pays-wrap" data-full="${dossier.pays_accueil || ""}">
               <span class="pill-pays">${dossier.pays_accueil || "Pays ?"}</span>
             </span>
@@ -165,7 +168,7 @@
         </div>
         ${downloadLink}
         <div class="card-status-bar ${statusClass}"></div>
-        <p class="card-etablissement">${buildingIcon}${dossier.etablissement}</p>
+                <p class="card-etablissement">${etabIcon}${dossier.etablissement}</p>
         <label class="card-select">
           <input type="checkbox" data-dossier="${dossier.dossier_number}" ${checked}
                  aria-label="Sélectionner le dossier ${dossier.dossier_number}">
