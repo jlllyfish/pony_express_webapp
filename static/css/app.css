@@ -1,3 +1,39 @@
+@font-face {
+  font-family: "Public Sans";
+  src: url("../fonts/PublicSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Public Sans";
+  src: url("../fonts/PublicSans-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Public Sans";
+  src: url("../fonts/PublicSans-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Public Sans";
+  src: url("../fonts/PublicSans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Public Sans";
+  src: url("../fonts/PublicSans-ExtraBold.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg: #f3f1f7;
   --surface: #ffffff;
@@ -20,7 +56,7 @@
 body {
   margin: 0;
   font-family:
-    "Inter",
+    "Public Sans",
     -apple-system,
     "Segoe UI",
     sans-serif;
