@@ -314,8 +314,8 @@ def envoyer_kit_pedagogique(dossier_number, pdf_path: str) -> None:
     fichiers_existants = _get_current_files(dossier_number, annotation_id)
     if fichiers_existants:
         raise RuntimeError(
-            f"Un fichier est déjà attaché dans DN ({fichiers_existants[0]['filename']}). "
-            "Supprime-le manuellement côté instructeur DN avant de renvoyer — "
+            f"Un fichier est déjà attaché dans DN :<br>{fichiers_existants[0]['filename']}.<br> "
+            "Supprime-le manuellement côté instructeur DN avant de renvoyer.<br> "
             "l'API ne permet pas de remplacer une pièce jointe existante."
         )
 
