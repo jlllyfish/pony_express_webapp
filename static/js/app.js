@@ -304,7 +304,7 @@
       const lines = Object.entries(failed).map(
         ([n, msg]) => `<strong>#${n}</strong> — ${msg}`,
       );
-      showInfoModal("Échecs de génération", lines, "error");
+      showInfoModal("Échec de génération", lines, "error");
     }
     updateSelectionUI();
   }
@@ -381,7 +381,7 @@
       const lines = Object.entries(failed).map(
         ([n, msg]) => `<strong>#${n}</strong> — ${msg}`,
       );
-      showInfoModal("Échecs d'envoi", lines, "error");
+      showInfoModal("Échec d'envoi", lines, "error");
     }
     updateSelectionUI();
   }
