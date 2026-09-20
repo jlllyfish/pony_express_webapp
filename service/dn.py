@@ -187,7 +187,8 @@ ANNOTATION_ID_PJ_PEDAGOGIQUE = (
 def fetch_statuts_pj_dn() -> dict:
     """Interroge DN en un seul passage paginé pour savoir, pour chaque dossier
     de la démarche, si un fichier est réellement attaché au champ PJ kit
-    pédagogique. Retourne {dossier_number (str): {"a_un_fichier": bool, "dossier_id": str}}.
+    pédagogique ET l'état réel de la coche "envoyé". Retourne
+    {dossier_number (str): {"a_un_fichier": bool, "coche_dn": bool, "dossier_id": str}}.
     """
     query = """
     query($demarcheNumber: Int!, $after: String) {
@@ -199,6 +200,7 @@ def fetch_statuts_pj_dn() -> dict:
             number
             annotations {
               id
+              stringValue
               ... on PieceJustificativeChamp { files { filename } }
             }
           }
@@ -212,7 +214,7 @@ def fetch_statuts_pj_dn() -> dict:
         data = _graphql(query, {"demarcheNumber": DEMARCHE_NUMBER, "after": after})
         page = data["demarche"]["dossiers"]
         for node in page["nodes"]:
-            annotation = next(
+            pj = next(
                 (
                     a
                     for a in node["annotations"]
@@ -220,9 +222,19 @@ def fetch_statuts_pj_dn() -> dict:
                 ),
                 None,
             )
-            a_un_fichier = bool(annotation and annotation.get("files"))
+            coche = next(
+                (
+                    a
+                    for a in node["annotations"]
+                    if a["id"] == ANNOTATION_ID_ENVOYE_PEDAGOGIQUE
+                ),
+                None,
+            )
+            a_un_fichier = bool(pj and pj.get("files"))
+            coche_dn = bool(coche and str(coche.get("stringValue")).lower() == "true")
             resultats[str(node["number"])] = {
                 "a_un_fichier": a_un_fichier,
+                "coche_dn": coche_dn,
                 "dossier_id": node["id"],
             }
         if not page["pageInfo"]["hasNextPage"]:
@@ -232,10 +244,10 @@ def fetch_statuts_pj_dn() -> dict:
 
 
 def synchroniser_statuts_pj_avec_dn() -> dict:
-    """Compare le statut réel des PJ dans DN avec Grist pour tous les dossiers
-    de la démarche, et corrige Grist en cas d'écart (DN fait foi). Si le
-    fichier a disparu côté DN, décoche aussi l'annotation "envoyé" et retire
-    le label côté DN, pour que DN reste cohérent avec lui-même.
+    """Corrige deux écarts indépendants, chacun selon la réalité DN (fichiers) :
+    1. Grist vs DN — le statut affiché dans l'appli doit refléter DN.
+    2. La coche/label DN vs DN — pas de coche "envoyé" ni de label sans fichier
+       réellement attaché, même si Grist était déjà à jour de son côté.
     """
     statuts_dn = fetch_statuts_pj_dn()
 
@@ -252,17 +264,20 @@ def synchroniser_statuts_pj_avec_dn() -> dict:
             continue
 
         a_un_fichier = info["a_un_fichier"]
+        coche_dn = info["coche_dn"]
+        dossier_id = info["dossier_id"]
         valeur_grist = bool(row.get("contrat_pedagogique_envoye_par_l_ensfea"))
-        if a_un_fichier == valeur_grist:
-            continue
 
-        updates.append(
-            {"id": row["id"], "contrat_pedagogique_envoye_par_l_ensfea": a_un_fichier}
-        )
-        corriges.append(dossier_number)
+        if a_un_fichier != valeur_grist:
+            updates.append(
+                {
+                    "id": row["id"],
+                    "contrat_pedagogique_envoye_par_l_ensfea": a_un_fichier,
+                }
+            )
+            corriges.append(dossier_number)
 
-        if not a_un_fichier:
-            dossier_id = info["dossier_id"]
+        if not a_un_fichier and coche_dn:
             try:
                 _modifier_annotations(
                     dossier_id,
