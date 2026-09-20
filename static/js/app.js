@@ -24,6 +24,10 @@
     toastTitle: document.getElementById("toast-title"),
     toastProgress: document.getElementById("toast-progress"),
     toastClose: document.getElementById("toast-close"),
+    modal: document.getElementById("modal"),
+    modalTitle: document.getElementById("modal-title"),
+    modalList: document.getElementById("modal-list"),
+    modalClose: document.getElementById("modal-close"),
   };
 
   let toastTimeout = null;
@@ -74,6 +78,17 @@
   function hideToast() {
     clearTimeout(toastTimeout);
     el.toast.hidden = true;
+  }
+
+  function showInfoModal(title, lines, variant) {
+    el.modalTitle.textContent = title;
+    el.modalList.innerHTML = lines.map((line) => `<li>${line}</li>`).join("");
+    el.modal.classList.toggle("modal--error", variant === "error");
+    el.modal.hidden = false;
+  }
+
+  function hideInfoModal() {
+    el.modal.hidden = true;
   }
 
   function initiales(dossier) {
@@ -286,10 +301,10 @@
       Object.keys(failed).length,
     );
     if (Object.keys(failed).length) {
-      const detail = Object.entries(failed)
-        .map(([n, msg]) => `#${n} : ${msg}`)
-        .join("\n");
-      alert(`Échecs de génération :\n${detail}`);
+      const lines = Object.entries(failed).map(
+        ([n, msg]) => `<strong>#${n}</strong> — ${msg}`,
+      );
+      showInfoModal("Échecs de génération", lines, "error");
     }
     updateSelectionUI();
   }
@@ -363,10 +378,10 @@
       Object.keys(failed).length,
     );
     if (Object.keys(failed).length) {
-      const detail = Object.entries(failed)
-        .map(([n, msg]) => `#${n} : ${msg}`)
-        .join("\n");
-      alert(`Échecs d'envoi :\n${detail}`);
+      const lines = Object.entries(failed).map(
+        ([n, msg]) => `<strong>#${n}</strong> — ${msg}`,
+      );
+      showInfoModal("Échecs d'envoi", lines, "error");
     }
     updateSelectionUI();
   }
@@ -381,21 +396,29 @@
       if (!res.ok) throw new Error(data.error || "erreur inconnue");
 
       showToastResult("Vérification terminée", 1, 1, 0);
+      const lines = [];
       if (data.corriges && data.corriges.length) {
-        alert(
+        lines.push(
           `${data.corriges.length} dossier(s) corrigé(s) : #${data.corriges.join(", #")}`,
         );
       }
       if (data.erreurs && Object.keys(data.erreurs).length) {
-        const detail = Object.entries(data.erreurs)
-          .map(([n, msg]) => `#${n} : ${msg}`)
-          .join("\n");
-        alert(`Nettoyage DN (coche/label) en échec pour :\n${detail}`);
+        Object.entries(data.erreurs).forEach(([n, msg]) => {
+          lines.push(`<strong>#${n}</strong> — ${msg}`);
+        });
+      }
+      if (lines.length) {
+        const hasErrors = data.erreurs && Object.keys(data.erreurs).length;
+        showInfoModal(
+          "Résultat de la vérification",
+          lines,
+          hasErrors ? "error" : null,
+        );
       }
       await loadDossiers(true);
     } catch (err) {
       showToastResult("Échec de la vérification", 0, 1, 1);
-      alert("Erreur : " + err.message);
+      showInfoModal("Erreur", [`Vérification : ${err.message}`], "error");
     } finally {
       el.btnSyncDn.disabled = false;
     }
@@ -408,6 +431,10 @@
   el.btnSyncDn.addEventListener("click", syncWithDn);
   el.btnSend.addEventListener("click", sendSelection);
   el.toastClose.addEventListener("click", hideToast);
+  el.modalClose.addEventListener("click", hideInfoModal);
+  el.modal.addEventListener("click", (e) => {
+    if (e.target === el.modal) hideInfoModal();
+  });
   el.toggleSelectAll.addEventListener("change", () => {
     if (el.toggleSelectAll.checked) selectAllVisible();
     else selectNone();

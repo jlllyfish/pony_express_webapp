@@ -232,7 +232,90 @@ a {
   opacity: 0.6;
   cursor: wait;
 }
-
+/* --- Modale info/erreurs (remplace les alert() système) --- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 21, 31, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 20px;
+}
+.modal-backdrop[hidden] {
+  display: none;
+}
+.modal-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  max-width: 480px;
+  width: 100%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.modal-close {
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.modal-close:hover {
+  background: var(--bg);
+  color: var(--ink);
+}
+.modal-list {
+  margin: 0;
+  padding: 12px 24px 24px;
+  list-style: none;
+  overflow-y: auto;
+}
+.modal-list li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.modal-list li:last-child {
+  border-bottom: none;
+}
+.modal-list li strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+.modal-illustration {
+  display: none;
+  width: 160px;
+  height: auto;
+  margin: 20px auto 0;
+}
+.modal-backdrop.modal--error .modal-header {
+  border-bottom: none;
+  padding-bottom: 8px;
+}
 /* --- Toast progression / résultat --- */
 .toast {
   position: fixed;
