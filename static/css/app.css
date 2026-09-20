@@ -312,9 +312,8 @@ a {
   height: auto;
   margin: 20px auto 0;
 }
-.modal-backdrop.modal--error .modal-header {
-  border-bottom: none;
-  padding-bottom: 8px;
+.modal-backdrop.modal--error .modal-illustration {
+  display: block;
 }
 /* --- Toast progression / résultat --- */
 .toast {
