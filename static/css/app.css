@@ -98,16 +98,37 @@ a {
   height: 20px;
 }
 .rail-icon--active {
-  background: linear-gradient(
-    135deg,
-    rgba(109, 40, 217, 0.12),
-    rgba(236, 72, 153, 0.12)
-  );
+  background: #e7e3ee;
   color: var(--accent-start);
 }
 .rail-icon:focus-visible {
   outline: 2px solid var(--accent-start);
   outline-offset: 2px;
+}
+
+.rail-icon-wrap {
+  position: relative;
+}
+.rail-tooltip {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--ink);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 50;
+}
+.rail-icon-wrap:hover .rail-tooltip,
+.rail-icon-wrap:focus-within .rail-tooltip {
+  opacity: 1;
 }
 
 /* --- Filtres --- */
@@ -216,7 +237,7 @@ a {
 .toast {
   position: fixed;
   right: 20px;
-  bottom: 20px;
+  bottom: 60px;
   z-index: 100;
   display: flex;
   align-items: center;
@@ -280,9 +301,12 @@ a {
   overflow-y: auto;
   min-height: 0;
 }
+.content-header {
+  margin-top: 8px;
+}
 .content-header h1 {
-  margin: 0;
-  font-size: 22px;
+  margin: 0 0 24px;
+  font-size: 24px;
   font-weight: 700;
 }
 .content-sub {

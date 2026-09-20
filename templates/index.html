@@ -11,67 +11,93 @@
   </head>
   <body>
     <nav class="rail" aria-label="Navigation principale">
-      <a
-        class="rail-icon rail-icon--active"
-        href="#"
-        aria-current="page"
-        title="Kits pédagogiques"
-      >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-        >
-          <rect x="3" y="3" width="7" height="7" rx="1.5" />
-          <rect x="14" y="3" width="7" height="7" rx="1.5" />
-          <rect x="3" y="14" width="7" height="7" rx="1.5" />
-          <rect x="14" y="14" width="7" height="7" rx="1.5" />
-        </svg>
-      </a>
-      <a class="rail-icon" href="#" title="Calendrier">
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-        >
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path d="M8 3v4M16 3v4M3 10h18" />
-        </svg>
-      </a>
-      <a class="rail-icon" href="#" title="Notifications">
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-        >
-          <path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z" />
-          <path d="M10 20a2 2 0 0 0 4 0" />
-        </svg>
-      </a>
-      <a class="rail-icon" href="#" title="Réglages">
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-        >
-          <circle cx="12" cy="12" r="3" />
-          <path
-            d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9c.14.41.44.77.83 1H21a2 2 0 1 1 0 4h-.09c-.41.14-.77.44-1 .83Z"
-          />
-        </svg>
-      </a>
+      <div class="rail-icon-wrap">
+        <a class="rail-icon rail-icon--active" href="#" aria-current="page">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"
+            />
+            <path d="M22 10v6" />
+            <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" />
+          </svg>
+        </a>
+        <span class="rail-tooltip">Apprenant</span>
+      </div>
+
+      <div class="rail-icon-wrap">
+        <a class="rail-icon" href="#">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M11.5 15H7a4 4 0 0 0-4 4v2" />
+            <path
+              d="M21.378 16.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"
+            />
+            <circle cx="10" cy="7" r="4" />
+          </svg>
+        </a>
+        <span class="rail-tooltip">Personnel</span>
+      </div>
+
+      <div class="rail-icon-wrap">
+        <a class="rail-icon" href="#">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M17 21a5 5 0 00-10 0" />
+            <path d="M22 10.5a3.5 3.5 0 00-5.507-2.868" />
+            <path d="M7.507 7.632A3.5 3.5 0 002 10.5" />
+            <circle cx="12" cy="13" r="3" />
+            <circle cx="18.5" cy="4.5" r="2.5" />
+            <circle cx="5.5" cy="4.5" r="2.5" />
+          </svg>
+        </a>
+        <span class="rail-tooltip">Groupe</span>
+      </div>
+
+      <div class="rail-icon-wrap">
+        <a class="rail-icon" href="#">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"
+            />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </a>
+        <span class="rail-tooltip">Réglages</span>
+      </div>
     </nav>
 
     <aside class="filters">
@@ -226,10 +252,8 @@
 
     <main class="content">
       <header class="content-header">
-        <h1>Kits pédagogiques</h1>
-        <p class="content-sub">Démarche 128447</p>
+        <h1>Mobilités Apprenant</h1>
       </header>
-
       <div id="cards" class="card-grid" aria-live="polite">
         <p class="empty-state">Chargement des dossiers…</p>
       </div>
