@@ -153,7 +153,7 @@
         : "";
     const trajet =
       dossier.date_trajet_aller || dossier.date_trajet_retour
-        ? `Trajet ${dossier.date_trajet_aller || "?"} → ${dossier.date_trajet_retour || "?"}${duree(dossier.date_trajet_aller, dossier.date_trajet_retour)}`
+        ? `Trajet ${dossier.date_trajet_aller || "?"} → ${dossier.date_trajet_retour || "?"}`
         : "";
 
     const calendarIcon = `<svg width="14" height="14" class="date-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
