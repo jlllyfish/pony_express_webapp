@@ -24,11 +24,86 @@ INSTRUCTEUR_ID = os.environ["INSTRUCTEUR_ID"]
 
 TABLE_DOSSIERS = "Demarche_128447_dossiers"
 COLONNE_DOSSIER_ID = "dossier_id"
-COLONNE_ANNOTATION_ID = "contrat_pedagogique_id"
 
-# Stables au niveau de la démarche (mêmes pour tous les dossiers, vérifié via GraphiQL)
-ANNOTATION_ID_ENVOYE_PEDAGOGIQUE = "Q2hhbXAtNjk2OTQ5NQ=="
 LABEL_ID = "TGFiZWwtNTMxOTMx"  # "Kit péda envoyé (ENSFEA)"
+DEMARCHE_NUMBER = 128447
+
+# Ids des annotations du kit pédagogique (à mettre à jour si le formulaire des
+# annotations privées est modifié dans DN ; surchargeables par variables d'env).
+ANNOTATION_ID_PJ_PEDAGOGIQUE = os.environ.get(
+    "DN_ANNOTATION_PJ_PEDAGOGIQUE", "Q2hhbXAtNjk5NDM1MA=="
+)  # PJ « Contrat pédagogique »
+ANNOTATION_ID_ENVOYE_PEDAGOGIQUE = os.environ.get(
+    "DN_ANNOTATION_ENVOYE_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5NQ=="
+)  # case « envoyé par l'ENSFEA »
+# Case voisine au libellé proche : l'app ne doit JAMAIS la modifier
+ANNOTATION_ID_NE_PAS_TOUCHER = "Q2hhbXAtNjk5NDc1MA=="
+
+# Le PJ du contrat financier est retrouvé par son libellé
+LABEL_PJ_FINANCIER = "Contrat financier (à récupérer pour signature)"
+COLONNE_GRIST_FINANCIER = "contrat_financier_envoye_par_l_ensfea"
+
+# Fragment GraphQL commun : assez d'infos pour reconnaître chaque champ
+FRAGMENT_ANNOTATIONS = """
+              id
+              label
+              __typename
+              stringValue
+              ... on PieceJustificativeChamp { files { filename } }
+"""
+
+
+def _norm_label(label) -> str:
+    """Libellé sans accents, sans casse ni espaces superflus, pour comparer."""
+    texte = str(label or "").replace("\u2019", "'")  # apostrophe typographique
+    texte = unicodedata.normalize("NFD", texte).encode("ascii", "ignore").decode()
+    return " ".join(texte.lower().split())
+
+
+def _trouver_annotations(annotations: list) -> dict:
+    """Repère, parmi les annotations d'un dossier, les trois champs utiles.
+    Renvoie {"pj_pedagogique", "coche_pedagogique", "pj_financier"} -> annotation ou None."""
+    par_id = {a["id"]: a for a in annotations}
+    label_fin = _norm_label(LABEL_PJ_FINANCIER)
+    pj_fin = next(
+        (
+            a
+            for a in annotations
+            if a.get("__typename") == "PieceJustificativeChamp"
+            and _norm_label(a.get("label")) == label_fin
+        ),
+        None,
+    )
+    return {
+        "pj_pedagogique": par_id.get(ANNOTATION_ID_PJ_PEDAGOGIQUE),
+        "coche_pedagogique": par_id.get(ANNOTATION_ID_ENVOYE_PEDAGOGIQUE),
+        "pj_financier": pj_fin,
+    }
+
+
+def _verifier_id_autorise(annotation_id: str) -> None:
+    if annotation_id == ANNOTATION_ID_NE_PAS_TOUCHER:
+        raise RuntimeError(f"Annotation {annotation_id} protégée : modification refusée")
+
+
+def _annotations_dossier(dossier_number) -> dict:
+    """Champs d'annotation utiles d'un dossier, lus en direct dans DN."""
+    query = (
+        "query($number: Int!) { dossier(number: $number) { annotations {"
+        + FRAGMENT_ANNOTATIONS
+        + "} } }"
+    )
+    data = _graphql(query, {"number": int(dossier_number)})
+    champs = _trouver_annotations(data["dossier"]["annotations"])
+    if not champs["pj_pedagogique"]:
+        raise RuntimeError(
+            f"Annotation PJ {ANNOTATION_ID_PJ_PEDAGOGIQUE} introuvable dans DN pour ce dossier"
+        )
+    if not champs["coche_pedagogique"]:
+        raise RuntimeError(
+            f"Case {ANNOTATION_ID_ENVOYE_PEDAGOGIQUE} introuvable dans DN pour ce dossier"
+        )
+    return champs
 
 HEADERS = {"Content-Type": "application/json", "Authorization": f"Bearer {API_TOKEN}"}
 
@@ -61,10 +136,7 @@ def _get_dossier_and_annotation_ids(dossier_number) -> tuple:
     )
     if not annotation_row:
         raise ValueError(f"Dossier {dossier_number} introuvable dans {kit.GRIST_TABLE}")
-    annotation_id = annotation_row[COLONNE_ANNOTATION_ID]
-    grist_row_id = annotation_row["id"]
-
-    return dossier_id, annotation_id, grist_row_id
+    return dossier_id, annotation_row["id"]
 
 
 def _create_direct_upload(file_path: str, dossier_id: str) -> str:
@@ -100,6 +172,8 @@ def _create_direct_upload(file_path: str, dossier_id: str) -> str:
 
 
 def _modifier_annotations(dossier_id: str, annotations: list) -> list:
+    for a in annotations:
+        _verifier_id_autorise(a["id"])
     query = """
     mutation dossierModifierAnnotations($input: DossierModifierAnnotationsInput!) {
       dossierModifierAnnotations(input: $input) {
@@ -151,25 +225,6 @@ def _supprimer_label(dossier_id: str) -> None:
         raise RuntimeError(errors)
 
 
-def _get_current_files(dossier_number, annotation_id: str) -> list:
-    """Interroge DN pour savoir si un fichier est déjà attaché sur ce champ PJ, à l'instant présent."""
-    query = """
-    query($number: Int!) {
-      dossier(number: $number) {
-        annotations {
-          id
-          ... on PieceJustificativeChamp { files { filename } }
-        }
-      }
-    }
-    """
-    data = _graphql(query, {"number": int(dossier_number)})
-    for a in data["dossier"]["annotations"]:
-        if a["id"] == annotation_id:
-            return a.get("files") or []
-    return []
-
-
 def _marquer_envoye_dans_grist(grist_row_id, envoye: bool) -> None:
     """Écrit directement le statut d'envoi dans Grist, sans attendre le prochain cycle de sync OTP."""
     grist = GristService(kit.GRIST_DOC_ID, kit.GRIST_TEAM_SITE, kit.GRIST_SERVER)
@@ -179,30 +234,14 @@ def _marquer_envoye_dans_grist(grist_row_id, envoye: bool) -> None:
     )
 
 
-DEMARCHE_NUMBER = 128447
-ANNOTATION_ID_PJ_PEDAGOGIQUE = (
-    "Q2hhbXAtNjk2OTQ5Ng=="  # "Contrat pédagogique" (le vrai champ PJ)
-)
-
-
-# Champ PJ du contrat financier, repéré par son libellé (son id n'est pas fixé ici)
-LABEL_PJ_FINANCIER = "Contrat financier (à récupérer pour signature)"
-COLONNE_GRIST_FINANCIER = "contrat_financier_envoye_par_l_ensfea"
-
-
-def _norm_label(label) -> str:
-    """Libellé sans accents, sans casse ni espaces superflus, pour comparer."""
-    texte = unicodedata.normalize("NFD", str(label or "")).encode("ascii", "ignore").decode()
-    return " ".join(texte.lower().split())
-
-
 def fetch_statuts_pj_dn() -> dict:
     """Interroge DN en un seul passage paginé pour savoir, pour chaque dossier
     de la démarche, si un fichier est réellement attaché au champ PJ kit
     pédagogique ET l'état réel de la coche "envoyé". Retourne
     {dossier_number (str): {"a_un_fichier": bool, "coche_dn": bool, "dossier_id": str}}.
     """
-    query = """
+    query = (
+        """
     query($demarcheNumber: Int!, $after: String) {
       demarche(number: $demarcheNumber) {
         dossiers(first: 100, after: $after) {
@@ -210,44 +249,25 @@ def fetch_statuts_pj_dn() -> dict:
           nodes {
             id
             number
-            annotations {
-              id
-              label
-              stringValue
-              ... on PieceJustificativeChamp { files { filename } }
-            }
+            annotations {"""
+        + FRAGMENT_ANNOTATIONS
+        + """}
           }
         }
       }
     }
     """
-    label_financier = _norm_label(LABEL_PJ_FINANCIER)
+    )
     resultats = {}
     after = None
     while True:
         data = _graphql(query, {"demarcheNumber": DEMARCHE_NUMBER, "after": after})
         page = data["demarche"]["dossiers"]
         for node in page["nodes"]:
-            pj = next(
-                (
-                    a
-                    for a in node["annotations"]
-                    if a["id"] == ANNOTATION_ID_PJ_PEDAGOGIQUE
-                ),
-                None,
-            )
-            coche = next(
-                (
-                    a
-                    for a in node["annotations"]
-                    if a["id"] == ANNOTATION_ID_ENVOYE_PEDAGOGIQUE
-                ),
-                None,
-            )
-            pj_financier = next(
-                (a for a in node["annotations"] if _norm_label(a.get("label")) == label_financier),
-                None,
-            )
+            champs = _trouver_annotations(node["annotations"])
+            pj = champs["pj_pedagogique"]
+            coche = champs["coche_pedagogique"]
+            pj_financier = champs["pj_financier"]
             a_un_fichier = bool(pj and pj.get("files"))
             coche_dn = bool(coche and str(coche.get("stringValue")).lower() == "true")
             resultats[str(node["number"])] = {
@@ -257,6 +277,8 @@ def fetch_statuts_pj_dn() -> dict:
                     bool(pj_financier.get("files")) if pj_financier else None
                 ),
                 "coche_dn": coche_dn,
+                "pj_pedagogique_trouve": pj is not None,
+                "coche_id": coche["id"] if coche else None,
                 "dossier_id": node["id"],
             }
         if not page["pageInfo"]["hasNextPage"]:
@@ -286,37 +308,34 @@ def synchroniser_statuts_pj_avec_dn() -> dict:
         if not info:
             continue
 
+        # Contrat financier : la case Grist doit refléter la présence d'un fichier dans DN
+        financier_dn = info["financier_a_un_fichier"]
+        if financier_dn is not None and financier_dn != bool(row.get(COLONNE_GRIST_FINANCIER)):
+            updates.append({"id": row["id"], COLONNE_GRIST_FINANCIER: financier_dn})
+            corriges_financier.append(dossier_number)
+
+        if not info["pj_pedagogique_trouve"]:
+            continue  # champ introuvable : on ne touche pas au statut pédagogique
         a_un_fichier = info["a_un_fichier"]
         coche_dn = info["coche_dn"]
         dossier_id = info["dossier_id"]
         valeur_grist = bool(row.get("contrat_pedagogique_envoye_par_l_ensfea"))
 
         if a_un_fichier != valeur_grist:
-            updates.append(
-                {
-                    "id": row["id"],
-                    "contrat_pedagogique_envoye_par_l_ensfea": a_un_fichier,
-                }
-            )
-            corriges.append(dossier_number)
-
-        # Contrat financier : la case Grist doit refléter la présence d'un fichier dans DN
-        financier_dn = info["financier_a_un_fichier"]
-        if financier_dn is not None and financier_dn != bool(row.get(COLONNE_GRIST_FINANCIER)):
             update = next((u for u in updates if u["id"] == row["id"]), None)
             if update is None:
                 update = {"id": row["id"]}
                 updates.append(update)
-            update[COLONNE_GRIST_FINANCIER] = financier_dn
-            corriges_financier.append(dossier_number)
+            update["contrat_pedagogique_envoye_par_l_ensfea"] = a_un_fichier
+            corriges.append(dossier_number)
 
-        if not a_un_fichier and coche_dn:
+        if not a_un_fichier and coche_dn and info["coche_id"]:
             try:
                 _modifier_annotations(
                     dossier_id,
                     [
                         {
-                            "id": ANNOTATION_ID_ENVOYE_PEDAGOGIQUE,
+                            "id": info["coche_id"],
                             "value": {"checkbox": False},
                         }
                     ],
@@ -327,6 +346,11 @@ def synchroniser_statuts_pj_avec_dn() -> dict:
 
     if updates:
         grist.update_grist_data(kit.GRIST_TABLE, updates)
+
+    if statuts_dn and not any(i["pj_pedagogique_trouve"] for i in statuts_dn.values()):
+        erreurs["contrat_pedagogique"] = (
+            f"Annotation PJ {ANNOTATION_ID_PJ_PEDAGOGIQUE} introuvable dans DN"
+        )
 
     # Si aucun dossier n'a le champ PJ financier, son libellé a sans doute changé dans DN
     financier_trouve = any(i["financier_a_un_fichier"] is not None for i in statuts_dn.values())
@@ -352,11 +376,10 @@ def envoyer_kit_pedagogique(dossier_number, pdf_path: str) -> None:
     supprimé l'ancien fichier ajouterait un doublon plutôt que de le
     remplacer. Nettoyage : à la main, côté interface instructeur DN.
     """
-    dossier_id, annotation_id, grist_row_id = _get_dossier_and_annotation_ids(
-        dossier_number
-    )
+    dossier_id, grist_row_id = _get_dossier_and_annotation_ids(dossier_number)
 
-    fichiers_existants = _get_current_files(dossier_number, annotation_id)
+    champs = _annotations_dossier(dossier_number)
+    fichiers_existants = champs["pj_pedagogique"].get("files") or []
     if fichiers_existants:
         raise RuntimeError(
             f"Un fichier est déjà attaché dans DN :<br>{fichiers_existants[0]['filename']}.<br> "
@@ -373,8 +396,11 @@ def envoyer_kit_pedagogique(dossier_number, pdf_path: str) -> None:
     _modifier_annotations(
         dossier_id,
         [
-            {"id": annotation_id, "value": {"pieceJustificative": [signed_blob_id]}},
-            {"id": ANNOTATION_ID_ENVOYE_PEDAGOGIQUE, "value": {"checkbox": True}},
+            {
+                "id": champs["pj_pedagogique"]["id"],
+                "value": {"pieceJustificative": [signed_blob_id]},
+            },
+            {"id": champs["coche_pedagogique"]["id"], "value": {"checkbox": True}},
         ],
     )
 
