@@ -10,6 +10,7 @@ import hashlib
 import json
 import mimetypes
 import os
+import unicodedata
 
 import requests
 from pony_express.service.grist import GristService
@@ -184,6 +185,17 @@ ANNOTATION_ID_PJ_PEDAGOGIQUE = (
 )
 
 
+# Champ PJ du contrat financier, repéré par son libellé (son id n'est pas fixé ici)
+LABEL_PJ_FINANCIER = "Contrat financier (à récupérer pour signature)"
+COLONNE_GRIST_FINANCIER = "contrat_financier_envoye_par_l_ensfea"
+
+
+def _norm_label(label) -> str:
+    """Libellé sans accents, sans casse ni espaces superflus, pour comparer."""
+    texte = unicodedata.normalize("NFD", str(label or "")).encode("ascii", "ignore").decode()
+    return " ".join(texte.lower().split())
+
+
 def fetch_statuts_pj_dn() -> dict:
     """Interroge DN en un seul passage paginé pour savoir, pour chaque dossier
     de la démarche, si un fichier est réellement attaché au champ PJ kit
@@ -200,6 +212,7 @@ def fetch_statuts_pj_dn() -> dict:
             number
             annotations {
               id
+              label
               stringValue
               ... on PieceJustificativeChamp { files { filename } }
             }
@@ -208,6 +221,7 @@ def fetch_statuts_pj_dn() -> dict:
       }
     }
     """
+    label_financier = _norm_label(LABEL_PJ_FINANCIER)
     resultats = {}
     after = None
     while True:
@@ -230,10 +244,18 @@ def fetch_statuts_pj_dn() -> dict:
                 ),
                 None,
             )
+            pj_financier = next(
+                (a for a in node["annotations"] if _norm_label(a.get("label")) == label_financier),
+                None,
+            )
             a_un_fichier = bool(pj and pj.get("files"))
             coche_dn = bool(coche and str(coche.get("stringValue")).lower() == "true")
             resultats[str(node["number"])] = {
                 "a_un_fichier": a_un_fichier,
+                # None = champ PJ financier introuvable sur ce dossier : on ne touche à rien
+                "financier_a_un_fichier": (
+                    bool(pj_financier.get("files")) if pj_financier else None
+                ),
                 "coche_dn": coche_dn,
                 "dossier_id": node["id"],
             }
@@ -255,6 +277,7 @@ def synchroniser_statuts_pj_avec_dn() -> dict:
     annotations = grist.get_table_records(kit.GRIST_TABLE)
 
     corriges = []
+    corriges_financier = []
     updates = []
     erreurs = {}
     for row in annotations:
@@ -277,6 +300,16 @@ def synchroniser_statuts_pj_avec_dn() -> dict:
             )
             corriges.append(dossier_number)
 
+        # Contrat financier : la case Grist doit refléter la présence d'un fichier dans DN
+        financier_dn = info["financier_a_un_fichier"]
+        if financier_dn is not None and financier_dn != bool(row.get(COLONNE_GRIST_FINANCIER)):
+            update = next((u for u in updates if u["id"] == row["id"]), None)
+            if update is None:
+                update = {"id": row["id"]}
+                updates.append(update)
+            update[COLONNE_GRIST_FINANCIER] = financier_dn
+            corriges_financier.append(dossier_number)
+
         if not a_un_fichier and coche_dn:
             try:
                 _modifier_annotations(
@@ -295,7 +328,19 @@ def synchroniser_statuts_pj_avec_dn() -> dict:
     if updates:
         grist.update_grist_data(kit.GRIST_TABLE, updates)
 
-    return {"verifies": len(statuts_dn), "corriges": corriges, "erreurs": erreurs}
+    # Si aucun dossier n'a le champ PJ financier, son libellé a sans doute changé dans DN
+    financier_trouve = any(i["financier_a_un_fichier"] is not None for i in statuts_dn.values())
+    if statuts_dn and not financier_trouve:
+        erreurs["contrat_financier"] = (
+            f"Champ PJ « {LABEL_PJ_FINANCIER} » introuvable dans les annotations DN"
+        )
+
+    return {
+        "verifies": len(statuts_dn),
+        "corriges": corriges,
+        "corriges_financier": corriges_financier,
+        "erreurs": erreurs,
+    }
 
 
 def envoyer_kit_pedagogique(dossier_number, pdf_path: str) -> None:
