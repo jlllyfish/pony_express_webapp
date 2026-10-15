@@ -24,11 +24,13 @@ INSTRUCTEUR_ID = os.environ["INSTRUCTEUR_ID"]
 
 TABLE_DOSSIERS = "Demarche_128447_dossiers"
 COLONNE_DOSSIER_ID = "dossier_id"
-COLONNE_ANNOTATION_ID = "contrat_pedagogique_id"
 
 # Stables au niveau de la démarche (mêmes pour tous les dossiers, vérifié via GraphiQL)
 ANNOTATION_ID_ENVOYE_PEDAGOGIQUE = "Q2hhbXAtNjk2OTQ5NQ=="
 LABEL_ID = "TGFiZWwtNTMxOTMx"  # "Kit péda envoyé (ENSFEA)"
+
+DEMARCHE_NUMBER = 128447
+ANNOTATION_ID_PJ_PEDAGOGIQUE = "Q2hhbXAtNjk2OTQ5Ng=="  # "Contrat pédagogique" (le vrai champ PJ)
 
 HEADERS = {"Content-Type": "application/json", "Authorization": f"Bearer {API_TOKEN}"}
 
@@ -61,7 +63,8 @@ def _get_dossier_and_annotation_ids(dossier_number) -> tuple:
     )
     if not annotation_row:
         raise ValueError(f"Dossier {dossier_number} introuvable dans {kit.GRIST_TABLE}")
-    annotation_id = annotation_row[COLONNE_ANNOTATION_ID]
+    # Id du champ PJ : stable au niveau de la démarche, plus besoin de colonne Grist
+    annotation_id = ANNOTATION_ID_PJ_PEDAGOGIQUE
     grist_row_id = annotation_row["id"]
 
     return dossier_id, annotation_id, grist_row_id
@@ -177,12 +180,6 @@ def _marquer_envoye_dans_grist(grist_row_id, envoye: bool) -> None:
         kit.GRIST_TABLE,
         [{"id": grist_row_id, "contrat_pedagogique_envoye_par_l_ensfea": envoye}],
     )
-
-
-DEMARCHE_NUMBER = 128447
-ANNOTATION_ID_PJ_PEDAGOGIQUE = (
-    "Q2hhbXAtNjk2OTQ5Ng=="  # "Contrat pédagogique" (le vrai champ PJ)
-)
 
 
 # Champ PJ du contrat financier, repéré par son libellé (son id n'est pas fixé ici)
