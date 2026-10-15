@@ -402,6 +402,11 @@
           `${data.corriges.length} dossier(s) corrigé(s) : #${data.corriges.join(", #")}`,
         );
       }
+      if (data.corriges_financier && data.corriges_financier.length) {
+        lines.push(
+          `Contrat financier : ${data.corriges_financier.length} dossier(s) corrigé(s) : #${data.corriges_financier.join(", #")}`,
+        );
+      }
       if (data.erreurs && Object.keys(data.erreurs).length) {
         Object.entries(data.erreurs).forEach(([n, msg]) => {
           lines.push(`<strong>#${n}</strong> — ${msg}`);
