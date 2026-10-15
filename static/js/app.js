@@ -116,6 +116,22 @@
     );
   }
 
+  // Dates reçues au format jj-mm-aa (ou jj-mm-aaaa) -> objet Date, ou null
+  function parseDate(txt) {
+    const m = /^(\d{2})[-/](\d{2})[-/](\d{2}|\d{4})$/.exec(String(txt || "").trim());
+    if (!m) return null;
+    const annee = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+    return Date.UTC(annee, Number(m[2]) - 1, Number(m[1]));
+  }
+
+  // Nombre de jours, bornes incluses, ex : " (29 j)" ; vide si incalculable
+  function duree(debut, fin) {
+    const d = parseDate(debut);
+    const f = parseDate(fin);
+    if (d === null || f === null || f < d) return "";
+    return ` <span class="card-duree">(${Math.round((f - d) / 86400000) + 1} j)</span>`;
+  }
+
   function cardTemplate(dossier) {
     const statusClass =
       dossier.statut === "envoye"
@@ -133,11 +149,11 @@
 
     const activite =
       dossier.date_debut_activite || dossier.date_fin_activite
-        ? `${dossier.date_debut_activite || "?"} → ${dossier.date_fin_activite || "?"}`
+        ? `${dossier.date_debut_activite || "?"} → ${dossier.date_fin_activite || "?"}${duree(dossier.date_debut_activite, dossier.date_fin_activite)}`
         : "";
     const trajet =
       dossier.date_trajet_aller || dossier.date_trajet_retour
-        ? `Trajet ${dossier.date_trajet_aller || "?"} → ${dossier.date_trajet_retour || "?"}`
+        ? `Trajet ${dossier.date_trajet_aller || "?"} → ${dossier.date_trajet_retour || "?"}${duree(dossier.date_trajet_aller, dossier.date_trajet_retour)}`
         : "";
 
     const calendarIcon = `<svg width="14" height="14" class="date-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

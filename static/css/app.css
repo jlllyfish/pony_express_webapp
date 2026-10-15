@@ -771,3 +771,7 @@ a {
 .app-footer-license a:hover {
   color: var(--ink);
 }
+
+.card-duree {
+  opacity: 0.7;
+}
