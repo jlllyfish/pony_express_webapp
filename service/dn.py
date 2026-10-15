@@ -28,8 +28,18 @@ COLONNE_DOSSIER_ID = "dossier_id"
 LABEL_ID = "TGFiZWwtNTMxOTMx"  # "Kit péda envoyé (ENSFEA)"
 DEMARCHE_NUMBER = 128447
 
-# Les champs d'annotation sont retrouvés par leur libellé : leurs ids changent
-# quand le formulaire des annotations privées est modifié dans DN.
+# Ids des annotations du kit pédagogique (à mettre à jour si le formulaire des
+# annotations privées est modifié dans DN ; surchargeables par variables d'env).
+ANNOTATION_ID_PJ_PEDAGOGIQUE = os.environ.get(
+    "DN_ANNOTATION_PJ_PEDAGOGIQUE", "Q2hhbXAtNjk5NDM1MA=="
+)  # PJ « Contrat pédagogique »
+ANNOTATION_ID_ENVOYE_PEDAGOGIQUE = os.environ.get(
+    "DN_ANNOTATION_ENVOYE_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5NQ=="
+)  # case « envoyé par l'ENSFEA »
+# Case voisine au libellé proche : l'app ne doit JAMAIS la modifier
+ANNOTATION_ID_NE_PAS_TOUCHER = "Q2hhbXAtNjk5NDc1MA=="
+
+# Le PJ du contrat financier est retrouvé par son libellé
 LABEL_PJ_FINANCIER = "Contrat financier (à récupérer pour signature)"
 COLONNE_GRIST_FINANCIER = "contrat_financier_envoye_par_l_ensfea"
 
@@ -53,18 +63,27 @@ def _norm_label(label) -> str:
 def _trouver_annotations(annotations: list) -> dict:
     """Repère, parmi les annotations d'un dossier, les trois champs utiles.
     Renvoie {"pj_pedagogique", "coche_pedagogique", "pj_financier"} -> annotation ou None."""
-    pj_ped = coche_ped = pj_fin = None
-    for a in annotations:
-        label = _norm_label(a.get("label"))
-        type_ = a.get("__typename")
-        if type_ == "PieceJustificativeChamp":
-            if label == _norm_label(LABEL_PJ_FINANCIER):
-                pj_fin = a
-            elif "contrat pedagogique" in label and pj_ped is None:
-                pj_ped = a
-        elif type_ == "CheckboxChamp" and "contrat pedagogique" in label and "envoye" in label:
-            coche_ped = a
-    return {"pj_pedagogique": pj_ped, "coche_pedagogique": coche_ped, "pj_financier": pj_fin}
+    par_id = {a["id"]: a for a in annotations}
+    label_fin = _norm_label(LABEL_PJ_FINANCIER)
+    pj_fin = next(
+        (
+            a
+            for a in annotations
+            if a.get("__typename") == "PieceJustificativeChamp"
+            and _norm_label(a.get("label")) == label_fin
+        ),
+        None,
+    )
+    return {
+        "pj_pedagogique": par_id.get(ANNOTATION_ID_PJ_PEDAGOGIQUE),
+        "coche_pedagogique": par_id.get(ANNOTATION_ID_ENVOYE_PEDAGOGIQUE),
+        "pj_financier": pj_fin,
+    }
+
+
+def _verifier_id_autorise(annotation_id: str) -> None:
+    if annotation_id == ANNOTATION_ID_NE_PAS_TOUCHER:
+        raise RuntimeError(f"Annotation {annotation_id} protégée : modification refusée")
 
 
 def _annotations_dossier(dossier_number) -> dict:
@@ -78,11 +97,11 @@ def _annotations_dossier(dossier_number) -> dict:
     champs = _trouver_annotations(data["dossier"]["annotations"])
     if not champs["pj_pedagogique"]:
         raise RuntimeError(
-            "Champ PJ « Contrat pédagogique » introuvable dans les annotations DN du dossier"
+            f"Annotation PJ {ANNOTATION_ID_PJ_PEDAGOGIQUE} introuvable dans DN pour ce dossier"
         )
     if not champs["coche_pedagogique"]:
         raise RuntimeError(
-            "Case « Contrat pédagogique envoyé… » introuvable dans les annotations DN du dossier"
+            f"Case {ANNOTATION_ID_ENVOYE_PEDAGOGIQUE} introuvable dans DN pour ce dossier"
         )
     return champs
 
@@ -153,6 +172,8 @@ def _create_direct_upload(file_path: str, dossier_id: str) -> str:
 
 
 def _modifier_annotations(dossier_id: str, annotations: list) -> list:
+    for a in annotations:
+        _verifier_id_autorise(a["id"])
     query = """
     mutation dossierModifierAnnotations($input: DossierModifierAnnotationsInput!) {
       dossierModifierAnnotations(input: $input) {
@@ -328,7 +349,7 @@ def synchroniser_statuts_pj_avec_dn() -> dict:
 
     if statuts_dn and not any(i["pj_pedagogique_trouve"] for i in statuts_dn.values()):
         erreurs["contrat_pedagogique"] = (
-            "Champ PJ « Contrat pédagogique » introuvable dans les annotations DN"
+            f"Annotation PJ {ANNOTATION_ID_PJ_PEDAGOGIQUE} introuvable dans DN"
         )
 
     # Si aucun dossier n'a le champ PJ financier, son libellé a sans doute changé dans DN
