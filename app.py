@@ -6,9 +6,9 @@ load_dotenv()  # doit précéder les imports ci-dessous : ils lisent os.environ 
 
 from flask import Flask, jsonify, render_template, request, send_file
 
-from service.dn import envoyer_kit_pedagogique, synchroniser_statuts_pj_avec_dn
+from service.dn import DOCUMENTS, envoyer_document, synchroniser_statuts_pj_avec_dn
 from service.dossiers import list_dossiers, list_etablissements
-from service.generation import generate_kit_pedagogique
+from service.generation import generate_document
 
 app = Flask(__name__)
 
@@ -50,15 +50,24 @@ def api_sync_dn():
     return jsonify(resultat)
 
 
+def _document(value) -> str:
+    """Document visé : "pedagogique" (défaut) ou "financier"."""
+    document = value or "pedagogique"
+    if document not in DOCUMENTS:
+        raise ValueError(f"document inconnu : {document}")
+    return document
+
+
 @app.post("/api/kits/generate")
 def api_generate():
-    """Génère le kit pédagogique pour les dossiers sélectionnés (liste de dossier_number)."""
+    """Génère le document choisi pour les dossiers sélectionnés (liste de dossier_number)."""
     payload = request.get_json(force=True) or {}
     dossier_numbers = payload.get("dossier_numbers", [])
     if not dossier_numbers:
         return jsonify({"error": "aucun dossier sélectionné"}), 400
     try:
-        results = generate_kit_pedagogique(dossier_numbers)
+        document = _document(payload.get("document"))
+        results = generate_document(document, dossier_numbers)
     except Exception as exc:  # noqa: BLE001 - on renvoie l'erreur telle quelle pour debug en V1
         return jsonify({"error": str(exc)}), 500
     return jsonify({"generated": list(results.keys())})
@@ -67,7 +76,8 @@ def api_generate():
 @app.get("/api/kits/<dossier_number>/download")
 def api_download(dossier_number):
     try:
-        results = generate_kit_pedagogique([dossier_number])
+        document = _document(request.args.get("document"))
+        results = generate_document(document, [dossier_number])
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": str(exc)}), 500
     path = results.get(dossier_number) or results.get(int(dossier_number))
@@ -80,14 +90,15 @@ def api_download(dossier_number):
 
 @app.post("/api/kits/send")
 def api_send():
-    """Régénère le kit (données fraîches) puis l'envoie vers DN pour chaque dossier sélectionné."""
+    """Régénère le document (données fraîches) puis l'envoie vers DN pour chaque dossier sélectionné."""
     payload = request.get_json(force=True) or {}
     dossier_numbers = payload.get("dossier_numbers", [])
     if not dossier_numbers:
         return jsonify({"error": "aucun dossier sélectionné"}), 400
 
     try:
-        pdf_paths = generate_kit_pedagogique(dossier_numbers)
+        document = _document(payload.get("document"))
+        pdf_paths = generate_document(document, dossier_numbers)
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": f"génération échouée : {exc}"}), 500
 
@@ -98,7 +109,7 @@ def api_send():
             failed[dossier_number] = "PDF non généré (filtré par should_be_exported ?)"
             continue
         try:
-            envoyer_kit_pedagogique(dossier_number, path)
+            envoyer_document(document, dossier_number, path)
             sent.append(dossier_number)
         except Exception as exc:  # noqa: BLE001
             failed[dossier_number] = str(exc)
