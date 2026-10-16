@@ -5,6 +5,12 @@
   const selected = new Set();
   let filterKit = "tous";
   let filterFinancier = "tous";
+  // Document traité par les boutons Générer / Envoyer
+  let documentActif = "pedagogique";
+  const DOCUMENTS = {
+    pedagogique: { court: "le kit péda", nom: "kit pédagogique" },
+    financier: { court: "le contrat financier", nom: "contrat financier" },
+  };
 
   const el = {
     cards: document.getElementById("cards"),
@@ -133,18 +139,18 @@
   }
 
   function cardTemplate(dossier) {
+    // Statut du document actuellement choisi dans le sélecteur
+    const statut = dossier[`envoye_${documentActif}`]
+      ? "envoye"
+      : (dossier.statuts || {})[documentActif] || "non_genere";
     const statusClass =
-      dossier.statut === "envoye"
-        ? "is-envoye"
-        : dossier.statut === "genere"
-          ? "is-genere"
-          : "";
+      statut === "envoye" ? "is-envoye" : statut === "genere" ? "is-genere" : "";
     const checked = selected.has(String(dossier.dossier_number))
       ? "checked"
       : "";
     const downloadLink =
-      dossier.statut !== "non_genere"
-        ? `<a class="card-download" href="/api/kits/${dossier.dossier_number}/download">Télécharger le PDF</a>`
+      statut !== "non_genere"
+        ? `<a class="card-download" href="/api/kits/${dossier.dossier_number}/download?document=${documentActif}">Télécharger le PDF (${DOCUMENTS[documentActif].nom})</a>`
         : "";
 
     const activite =
@@ -284,7 +290,8 @@
     if (ids.length === 0) return;
     el.btnGenerate.disabled = true;
 
-    showToastProgress("Génération en cours…", 0, ids.length);
+    const doc = documentActif;
+    showToastProgress(`Génération du ${DOCUMENTS[doc].nom}…`, 0, ids.length);
     let successCount = 0;
     const failed = {};
 
@@ -294,14 +301,16 @@
         const res = await fetch("/api/kits/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dossier_numbers: [id] }),
+          body: JSON.stringify({ dossier_numbers: [id], document: doc }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "erreur inconnue");
+        if (!data.generated || !data.generated.length)
+          throw new Error("PDF non généré (filtré par should_be_exported ?)");
         const dossier = allDossiers.find(
           (d) => String(d.dossier_number) === id,
         );
-        if (dossier) dossier.statut = "genere";
+        if (dossier) dossier.statuts = { ...(dossier.statuts || {}), [doc]: "genere" };
         successCount++;
       } catch (err) {
         failed[id] = err.message;
@@ -356,7 +365,8 @@
     if (ids.length === 0) return;
     el.btnSend.disabled = true;
 
-    showToastProgress("Envoi en cours…", 0, ids.length);
+    const doc = documentActif;
+    showToastProgress(`Envoi du ${DOCUMENTS[doc].nom}…`, 0, ids.length);
     let successCount = 0;
     const failed = {};
 
@@ -366,7 +376,7 @@
         const res = await fetch("/api/kits/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dossier_numbers: [id] }),
+          body: JSON.stringify({ dossier_numbers: [id], document: doc }),
         });
         const data = await res.json();
         if (data.failed && data.failed[id]) throw new Error(data.failed[id]);
@@ -376,8 +386,7 @@
           (d) => String(d.dossier_number) === id,
         );
         if (dossier) {
-          dossier.envoye_pedagogique = true;
-          dossier.statut = "envoye";
+          dossier[`envoye_${doc}`] = true;
         }
         successCount++;
       } catch (err) {
@@ -415,7 +424,7 @@
       const lines = [];
       if (data.corriges && data.corriges.length) {
         lines.push(
-          `${data.corriges.length} dossier(s) corrigé(s) : #${data.corriges.join(", #")}`,
+          `Kit pédagogique : ${data.corriges.length} dossier(s) corrigé(s) : #${data.corriges.join(", #")}`,
         );
       }
       if (data.corriges_financier && data.corriges_financier.length) {
@@ -425,7 +434,7 @@
       }
       if (data.erreurs && Object.keys(data.erreurs).length) {
         Object.entries(data.erreurs).forEach(([n, msg]) => {
-          lines.push(`<strong>#${n}</strong> — ${msg}`);
+          lines.push(`<strong>${n}</strong> — ${msg}`);
         });
       }
       if (lines.length) {
@@ -461,6 +470,12 @@
     else selectNone();
   });
   wireSegmented('[data-filter="kit"]', (value) => (filterKit = value));
+  wireSegmented('[data-filter="document"]', (value) => {
+    documentActif = value;
+    document
+      .querySelectorAll(".doc-label")
+      .forEach((span) => (span.textContent = DOCUMENTS[value].court));
+  });
   wireSegmented(
     '[data-filter="financier"]',
     (value) => (filterFinancier = value),
