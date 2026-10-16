@@ -179,7 +179,8 @@
 
     return `
       <article class="card" data-dossier="${dossier.dossier_number}">
-        <div class="card-avatar">${initiales(dossier)}</div>
+        <div class="card-avatar${dossier.envoye_pedagogique && dossier.envoye_financier ? " is-complet" : ""}"
+             ${dossier.envoye_pedagogique && dossier.envoye_financier ? 'title="Les deux contrats ont été envoyés"' : ""}>${initiales(dossier)}</div>
         <div class="card-body">
           <div class="card-header-row">
             <h3 class="card-title">${
