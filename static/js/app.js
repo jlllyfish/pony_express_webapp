@@ -150,7 +150,7 @@
       : "";
     const downloadLink =
       statut !== "non_genere"
-        ? `<a class="card-download" href="/api/kits/${dossier.dossier_number}/download?document=${documentActif}">Télécharger le PDF (${DOCUMENTS[documentActif].nom})</a>`
+        ? `<a class="card-download" href="/api/kits/${dossier.dossier_number}/download?document=${documentActif}">Télécharger le PDF<br>(${DOCUMENTS[documentActif].nom})</a>`
         : "";
 
     const activite =
