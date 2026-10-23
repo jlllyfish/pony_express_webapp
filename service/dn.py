@@ -1,9 +1,10 @@
 """
 Envoi des documents vers DN (annotations privées) et synchronisation des statuts.
 
-Deux documents, même mécanique : upload en pièce jointe de l'annotation
-privée, coche « envoyé », ajout d'un label, statut écrit dans Grist.
-Chaque document est décrit dans DOCUMENTS ci-dessous.
+Deux documents, même mécanique : upload des PDF en pièces jointes des
+annotations privées, coche « envoyé », ajout d'un label, statut écrit dans
+Grist. Un document peut compter plusieurs PDF (kit péda + attestation) :
+la coche et le statut ne valent « envoyé » que si TOUS ses PDF sont dans DN.
 """
 
 import base64
@@ -30,15 +31,29 @@ DEMARCHE_NUMBER = 128447
 # (chacun est surchargeable par la variable d'environnement indiquée).
 DOCUMENTS = {
     "pedagogique": {
-        "nom": "kit pédagogique",
-        "pj": os.environ.get("DN_ANNOTATION_PJ_PEDAGOGIQUE", "Q2hhbXAtNjk5NDM1MA=="),
+        "nom": "kit pédagogique et attestation de présence",
+        "pieces": {
+            "pedagogique": {
+                "nom": "kit pédagogique",
+                "pj": os.environ.get("DN_ANNOTATION_PJ_PEDAGOGIQUE", "Q2hhbXAtNjk5NDM1MA=="),
+            },
+            "attestation": {
+                "nom": "attestation de présence",
+                "pj": os.environ.get("DN_ANNOTATION_PJ_ATTESTATION", "Q2hhbXAtNzExNzEzMQ=="),
+            },
+        },
         "coche": os.environ.get("DN_ANNOTATION_ENVOYE_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5NQ=="),
         "label": os.environ.get("DN_LABEL_PEDAGOGIQUE", "TGFiZWwtNTMxOTMx"),  # Kit péda envoyé (ENSFEA)
         "colonne_grist": "contrat_pedagogique_envoye_par_l_ensfea",
     },
     "financier": {
         "nom": "contrat financier",
-        "pj": os.environ.get("DN_ANNOTATION_PJ_FINANCIER", "Q2hhbXAtNjk5NDczMg=="),
+        "pieces": {
+            "financier": {
+                "nom": "contrat financier",
+                "pj": os.environ.get("DN_ANNOTATION_PJ_FINANCIER", "Q2hhbXAtNjk5NDczMg=="),
+            },
+        },
         "coche": os.environ.get("DN_ANNOTATION_ENVOYE_FINANCIER", "Q2hhbXAtNjk5NDY1MQ=="),
         "label": os.environ.get("DN_LABEL_FINANCIER", "TGFiZWwtNDE4Nzg1"),  # Kit financier envoyé (ENSFEA)
         "colonne_grist": "contrat_financier_envoye_par_l_ensfea",
@@ -233,11 +248,13 @@ def fetch_statuts_pj_dn() -> dict:
             par_id = {a["id"]: a for a in node["annotations"]}
             info = {"dossier_id": node["id"]}
             for document, conf in DOCUMENTS.items():
-                pj = par_id.get(conf["pj"])
+                pjs = [par_id.get(p["pj"]) for p in conf["pieces"].values()]
                 coche = par_id.get(conf["coche"])
                 info[document] = {
-                    "pj_trouvee": pj is not None,
-                    "a_un_fichier": bool(pj and pj.get("files")),
+                    # toutes les PJ du document existent dans le formulaire DN
+                    "pj_trouvee": all(pj is not None for pj in pjs),
+                    # « envoyé » seulement si TOUTES les PJ ont un fichier
+                    "a_un_fichier": all(pj and pj.get("files") for pj in pjs),
                     "coche_dn": bool(coche and str(coche.get("stringValue")).lower() == "true"),
                 }
             resultats[str(node["number"])] = info
@@ -292,7 +309,8 @@ def synchroniser_statuts_pj_avec_dn() -> dict:
     # Une PJ introuvable sur tous les dossiers : son id a sans doute changé dans DN
     for document, conf in DOCUMENTS.items():
         if statuts_dn and not any(i[document]["pj_trouvee"] for i in statuts_dn.values()):
-            erreurs[conf["nom"]] = f"Annotation PJ {conf['pj']} introuvable dans DN"
+            ids = ", ".join(p["pj"] for p in conf["pieces"].values())
+            erreurs[conf["nom"]] = f"Annotations PJ introuvables dans DN : {ids}"
 
     return {
         "verifies": len(statuts_dn),
@@ -302,47 +320,53 @@ def synchroniser_statuts_pj_avec_dn() -> dict:
     }
 
 
-def envoyer_document(document: str, dossier_number, pdf_path: str) -> None:
-    """Envoie un document généré vers DN pour un dossier : PJ + coche + label + statut Grist.
+def envoyer_document(document: str, dossier_number, pdf_paths: dict) -> None:
+    """Envoie les PDF d'un document vers DN pour un dossier : PJ + coche + label + statut Grist.
+    pdf_paths = {pdf: chemin}, ex : {"pedagogique": ..., "attestation": ...}.
 
-    Bloque l'envoi si un fichier est déjà attaché côté DN (vérifié en direct,
-    pas via le statut Grist qui peut être périmé) : l'API DN n'a aucune
-    mutation de suppression de pièce jointe, donc renvoyer sans avoir
-    supprimé l'ancien fichier ajouterait un doublon plutôt que de le
-    remplacer. Nettoyage : à la main, côté interface instructeur DN.
+    Une PJ qui a déjà un fichier dans DN n'est pas renvoyée (l'API DN n'a
+    aucune mutation de suppression : renvoyer ajouterait un doublon). On
+    complète seulement celles qui manquent ; si toutes sont déjà remplies,
+    l'envoi est refusé. Nettoyage éventuel : à la main, côté instructeur DN.
     """
     conf = _doc(document)
     dossier_id, grist_row_id = _get_dossier_and_annotation_ids(dossier_number)
 
     annotations = _annotations_dossier(dossier_number)
-    pj = annotations.get(conf["pj"])
-    if pj is None:
-        raise RuntimeError(f"Annotation PJ {conf['pj']} ({conf['nom']}) introuvable dans DN")
     if conf["coche"] not in annotations:
         raise RuntimeError(f"Case {conf['coche']} ({conf['nom']}) introuvable dans DN")
 
-    fichiers_existants = pj.get("files") or []
-    if fichiers_existants:
+    a_envoyer, deja_la = [], []
+    for pdf, piece in conf["pieces"].items():
+        pj = annotations.get(piece["pj"])
+        if pj is None:
+            raise RuntimeError(f"Annotation PJ {piece['pj']} ({piece['nom']}) introuvable dans DN")
+        fichiers = pj.get("files") or []
+        if fichiers:
+            deja_la.append(f"{piece['nom']} : {fichiers[0]['filename']}")
+        else:
+            a_envoyer.append((pdf, piece))
+
+    if not a_envoyer:
         raise RuntimeError(
-            f"Un fichier est déjà attaché dans DN ({conf['nom']}) :<br>"
-            f"{fichiers_existants[0]['filename']}.<br> "
-            "Supprime-le manuellement côté instructeur DN avant de renvoyer.<br> "
+            "Déjà présent dans DN :<br>" + "<br>".join(deja_la) + "<br> "
+            "Supprime le fichier manuellement côté instructeur DN avant de renvoyer.<br> "
             "l'API ne permet pas de remplacer une pièce jointe existante."
         )
 
-    # Confirmé vide côté DN : Grist peut être remis à jour même avant l'envoi
+    # Confirmé incomplet côté DN : Grist peut être remis à jour même avant l'envoi
     # (utile si l'envoi échoue plus loin : le statut reste honnête).
     _marquer_envoye_dans_grist(grist_row_id, conf["colonne_grist"], False)
 
-    signed_blob_id = _create_direct_upload(pdf_path, dossier_id)
-
-    _modifier_annotations(
-        dossier_id,
-        [
-            {"id": conf["pj"], "value": {"pieceJustificative": [signed_blob_id]}},
-            {"id": conf["coche"], "value": {"checkbox": True}},
-        ],
-    )
+    modifications = []
+    for pdf, piece in a_envoyer:
+        signed_blob_id = _create_direct_upload(pdf_paths[pdf], dossier_id)
+        modifications.append(
+            {"id": piece["pj"], "value": {"pieceJustificative": [signed_blob_id]}}
+        )
+    # Toutes les PJ sont maintenant remplies (déjà là + envoyées) : on coche
+    modifications.append({"id": conf["coche"], "value": {"checkbox": True}})
+    _modifier_annotations(dossier_id, modifications)
 
     _ajouter_label(dossier_id, conf["label"])
 
@@ -351,4 +375,4 @@ def envoyer_document(document: str, dossier_number, pdf_path: str) -> None:
 
 def envoyer_kit_pedagogique(dossier_number, pdf_path: str) -> None:
     """Compatibilité : ancien nom utilisé par les scripts."""
-    envoyer_document("pedagogique", dossier_number, pdf_path)
+    envoyer_document("pedagogique", dossier_number, {"pedagogique": pdf_path})

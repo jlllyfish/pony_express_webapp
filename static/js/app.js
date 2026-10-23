@@ -8,8 +8,20 @@
   // Document traité par les boutons Générer / Envoyer
   let documentActif = "pedagogique";
   const DOCUMENTS = {
-    pedagogique: { court: "le kit péda", nom: "kit pédagogique" },
-    financier: { court: "le contrat financier", nom: "contrat financier" },
+    pedagogique: {
+      court: "le kit péda + attestation",
+      nom: "kit pédagogique et de l'attestation",
+      // PDF téléchargeables séparément
+      pdfs: [
+        ["pedagogique", "kit pédagogique"],
+        ["attestation", "attestation de présence"],
+      ],
+    },
+    financier: {
+      court: "le contrat financier",
+      nom: "contrat financier",
+      pdfs: [["financier", "contrat financier"]],
+    },
   };
 
   const el = {
@@ -150,7 +162,12 @@
       : "";
     const downloadLink =
       statut !== "non_genere"
-        ? `<a class="card-download" href="/api/kits/${dossier.dossier_number}/download?document=${documentActif}">Télécharger le PDF<br>(${DOCUMENTS[documentActif].nom})</a>`
+        ? DOCUMENTS[documentActif].pdfs
+            .map(
+              ([pdf, nom]) =>
+                `<a class="card-download" href="/api/kits/${dossier.dossier_number}/download?document=${pdf}">Télécharger le PDF<br>(${nom})</a>`,
+            )
+            .join("")
         : "";
 
     const activite =
@@ -202,7 +219,7 @@
           ${trajet ? `<p class="card-dates card-dates--soft">${calendarIcon}${trajet}</p>` : ""}
 
           <div class="card-checks">
-            <span class="check-item">${dossier.envoye_pedagogique ? iconSent : iconNotSent} Kit pédagogique</span>
+            <span class="check-item">${dossier.envoye_pedagogique ? iconSent : iconNotSent} Kit pédagogique et attestation</span>
             <span class="check-item">${dossier.envoye_financier ? iconSent : iconNotSent} Contrat financier</span>
           </div>
         </div>

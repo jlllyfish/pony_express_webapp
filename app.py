@@ -8,7 +8,7 @@ from flask import Flask, jsonify, render_template, request, send_file
 
 from service.dn import DOCUMENTS, envoyer_document, synchroniser_statuts_pj_avec_dn
 from service.dossiers import list_dossiers, list_etablissements
-from service.generation import generate_document
+from service.generation import TEMPLATES, generate_document, generate_pieces
 
 app = Flask(__name__)
 
@@ -67,7 +67,7 @@ def api_generate():
         return jsonify({"error": "aucun dossier sélectionné"}), 400
     try:
         document = _document(payload.get("document"))
-        results = generate_document(document, dossier_numbers)
+        results = generate_pieces(document, dossier_numbers)
     except Exception as exc:  # noqa: BLE001 - on renvoie l'erreur telle quelle pour debug en V1
         return jsonify({"error": str(exc)}), 500
     return jsonify({"generated": list(results.keys())})
@@ -76,8 +76,11 @@ def api_generate():
 @app.get("/api/kits/<dossier_number>/download")
 def api_download(dossier_number):
     try:
-        document = _document(request.args.get("document"))
-        results = generate_document(document, [dossier_number])
+        # Téléchargement d'un PDF précis : pedagogique, attestation ou financier
+        pdf = request.args.get("document") or "pedagogique"
+        if pdf not in TEMPLATES:
+            raise ValueError(f"PDF inconnu : {pdf}")
+        results = generate_document(pdf, [dossier_number])
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": str(exc)}), 500
     path = results.get(dossier_number) or results.get(int(dossier_number))
@@ -98,18 +101,18 @@ def api_send():
 
     try:
         document = _document(payload.get("document"))
-        pdf_paths = generate_document(document, dossier_numbers)
+        pdf_paths = generate_pieces(document, dossier_numbers)
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": f"génération échouée : {exc}"}), 500
 
     sent, failed = [], {}
     for dossier_number in dossier_numbers:
-        path = pdf_paths.get(dossier_number) or pdf_paths.get(str(dossier_number))
-        if not path:
+        chemins = pdf_paths.get(str(dossier_number))
+        if not chemins:
             failed[dossier_number] = "PDF non généré (filtré par should_be_exported ?)"
             continue
         try:
-            envoyer_document(document, dossier_number, path)
+            envoyer_document(document, dossier_number, chemins)
             sent.append(dossier_number)
         except Exception as exc:  # noqa: BLE001
             failed[dossier_number] = str(exc)
