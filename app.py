@@ -43,7 +43,7 @@ def api_dossiers():
 
 @app.get("/api/groupes")
 def api_groupes():
-    """Mobilités de groupe (démarche 156967), lecture seule."""
+    """Mobilités de groupe (démarche 156967)."""
     try:
         if _cache["groupes"] is None or request.args.get("refresh") == "1":
             _cache["groupes"] = list_groupes()
@@ -56,8 +56,9 @@ def api_groupes():
 @app.post("/api/dossiers/sync-dn")
 def api_sync_dn():
     """Vérifie en un seul passage groupé si le statut Grist correspond à la réalité DN, corrige si besoin."""
+    payload = request.get_json(silent=True) or {}
     try:
-        resultat = synchroniser_statuts_pj_avec_dn()
+        resultat = synchroniser_statuts_pj_avec_dn(payload.get("demarche") or "apprenants")
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": str(exc)}), 500
     return jsonify(resultat)

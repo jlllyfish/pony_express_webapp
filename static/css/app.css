@@ -793,7 +793,7 @@ a {
   margin-top: 6px;
 }
 
-/* Page Groupe : pas de génération ni d'envoi pour l'instant */
+/* Page Groupe : un seul document, pas de sélecteur */
 body.vue-groupes .apprenants-only {
   display: none;
 }

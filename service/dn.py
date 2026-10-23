@@ -1,7 +1,7 @@
 """
 Envoi des documents vers DN (annotations privées) et synchronisation des statuts.
 
-Deux documents, même mécanique : upload des PDF en pièces jointes des
+Plusieurs démarches (apprenants, groupes) et documents, même mécanique : upload des PDF en pièces jointes des
 annotations privées, coche « envoyé », ajout d'un label, statut écrit dans
 Grist. Un document peut compter plusieurs PDF (kit péda + attestation) :
 la coche et le statut ne valent « envoyé » que si TOUS ses PDF sont dans DN.
@@ -23,14 +23,29 @@ API_URL = os.environ.get(
 API_TOKEN = os.environ["DN_API_TOKEN"]
 INSTRUCTEUR_ID = os.environ["INSTRUCTEUR_ID"]
 
-TABLE_DOSSIERS = "Demarche_128447_dossiers"
 COLONNE_DOSSIER_ID = "dossier_id"
-DEMARCHE_NUMBER = 128447
+
+# Démarches DN gérées : tables Grist correspondantes
+DEMARCHES = {
+    "apprenants": {
+        "numero": 128447,
+        "doc_id": kit.GRIST_DOC_ID,
+        "table_dossiers": "Demarche_128447_dossiers",
+        "table_annotations": kit.GRIST_TABLE,
+    },
+    "groupes": {
+        "numero": 156967,
+        "doc_id": os.environ.get("GRIST_DOC_ID_GROUPE") or kit.GRIST_DOC_ID,
+        "table_dossiers": "Demarche_156967_dossiers",
+        "table_annotations": "Demarche_156967_annotations",
+    },
+}
 
 # Ids DN à mettre à jour si le formulaire des annotations privées change
 # (chacun est surchargeable par la variable d'environnement indiquée).
 DOCUMENTS = {
     "pedagogique": {
+        "demarche": "apprenants",
         "nom": "kit pédagogique et attestation de présence",
         "pieces": {
             "pedagogique": {
@@ -47,6 +62,7 @@ DOCUMENTS = {
         "colonne_grist": "contrat_pedagogique_envoye_par_l_ensfea",
     },
     "financier": {
+        "demarche": "apprenants",
         "nom": "contrat financier",
         "pieces": {
             "financier": {
@@ -58,10 +74,26 @@ DOCUMENTS = {
         "label": os.environ.get("DN_LABEL_FINANCIER", "TGFiZWwtNDE4Nzg1"),  # Kit financier envoyé (ENSFEA)
         "colonne_grist": "contrat_financier_envoye_par_l_ensfea",
     },
+    "pedagogique_groupe": {
+        "demarche": "groupes",
+        "nom": "contrat pédagogique (groupe)",
+        "pieces": {
+            "pedagogique_groupe": {
+                "nom": "contrat pédagogique",
+                "pj": os.environ.get("DN_GROUPE_PJ_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5Ng=="),
+            },
+        },
+        "coche": os.environ.get("DN_GROUPE_ENVOYE_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5NQ=="),
+        "label": os.environ.get("DN_GROUPE_LABEL_PEDAGOGIQUE", "TGFiZWwtNTMyNjkw"),
+        "colonne_grist": "contrat_pedagogique_envoye_par_l_ensfea",
+    },
 }
 
 # Annotations voisines au libellé proche : l'app ne doit JAMAIS les modifier
-ANNOTATIONS_PROTEGEES = {"Q2hhbXAtNjk5NDc1MA=="}
+ANNOTATIONS_PROTEGEES = {
+    "Q2hhbXAtNjk5NDc1MA==",  # apprenants : case voisine
+    "Q2hhbXAtNjk5NDc1Nw==",  # groupes : « Contrat pédagogique envoyé par l'établissement »
+}
 
 HEADERS = {"Content-Type": "application/json", "Authorization": f"Bearer {API_TOKEN}"}
 
@@ -90,26 +122,31 @@ def _graphql(query: str, variables: dict) -> dict:
     return data["data"]
 
 
-def _grist() -> GristService:
-    return GristService(kit.GRIST_DOC_ID, kit.GRIST_TEAM_SITE, kit.GRIST_SERVER)
+def _documents(demarche: str) -> dict:
+    return {d: c for d, c in DOCUMENTS.items() if c["demarche"] == demarche}
 
 
-def _get_dossier_and_annotation_ids(dossier_number) -> tuple:
-    grist = _grist()
+def _grist(demarche: str = "apprenants") -> GristService:
+    return GristService(DEMARCHES[demarche]["doc_id"], kit.GRIST_TEAM_SITE, kit.GRIST_SERVER)
 
-    dossiers = grist.get_table_records(TABLE_DOSSIERS)
+
+def _get_dossier_and_annotation_ids(dossier_number, demarche: str = "apprenants") -> tuple:
+    dem = DEMARCHES[demarche]
+    grist = _grist(demarche)
+
+    dossiers = grist.get_table_records(dem["table_dossiers"])
     dossier_row = next(
         (r for r in dossiers if r.get("dossier_number") == str(dossier_number)), None
     )
     if not dossier_row:
-        raise ValueError(f"Dossier {dossier_number} introuvable dans {TABLE_DOSSIERS}")
+        raise ValueError(f"Dossier {dossier_number} introuvable dans {dem['table_dossiers']}")
 
-    annotations = grist.get_table_records(kit.GRIST_TABLE)
+    annotations = grist.get_table_records(dem["table_annotations"])
     annotation_row = next(
         (r for r in annotations if r.get("dossier_number") == str(dossier_number)), None
     )
     if not annotation_row:
-        raise ValueError(f"Dossier {dossier_number} introuvable dans {kit.GRIST_TABLE}")
+        raise ValueError(f"Dossier {dossier_number} introuvable dans {dem['table_annotations']}")
     return dossier_row[COLONNE_DOSSIER_ID], annotation_row["id"]
 
 
@@ -211,12 +248,14 @@ def _supprimer_label(dossier_id: str, label_id: str) -> None:
         raise RuntimeError(errors)
 
 
-def _marquer_envoye_dans_grist(grist_row_id, colonne: str, envoye: bool) -> None:
+def _marquer_envoye_dans_grist(grist_row_id, colonne: str, envoye: bool, demarche: str) -> None:
     """Écrit directement le statut d'envoi dans Grist, sans attendre le prochain cycle de sync OTP."""
-    _grist().update_grist_data(kit.GRIST_TABLE, [{"id": grist_row_id, colonne: envoye}])
+    _grist(demarche).update_grist_data(
+        DEMARCHES[demarche]["table_annotations"], [{"id": grist_row_id, colonne: envoye}]
+    )
 
 
-def fetch_statuts_pj_dn() -> dict:
+def fetch_statuts_pj_dn(demarche: str = "apprenants") -> dict:
     """Un seul passage paginé sur la démarche. Pour chaque dossier et chaque document :
     {dossier_number: {"dossier_id": str, "pedagogique": {...}, "financier": {...}}}
     avec pour chaque document {"pj_trouvee", "a_un_fichier", "coche_dn"}.
@@ -242,12 +281,12 @@ def fetch_statuts_pj_dn() -> dict:
     resultats = {}
     after = None
     while True:
-        data = _graphql(query, {"demarcheNumber": DEMARCHE_NUMBER, "after": after})
+        data = _graphql(query, {"demarcheNumber": DEMARCHES[demarche]["numero"], "after": after})
         page = data["demarche"]["dossiers"]
         for node in page["nodes"]:
             par_id = {a["id"]: a for a in node["annotations"]}
             info = {"dossier_id": node["id"]}
-            for document, conf in DOCUMENTS.items():
+            for document, conf in _documents(demarche).items():
                 pjs = [par_id.get(p["pj"]) for p in conf["pieces"].values()]
                 coche = par_id.get(conf["coche"])
                 info[document] = {
@@ -264,17 +303,21 @@ def fetch_statuts_pj_dn() -> dict:
     return resultats
 
 
-def synchroniser_statuts_pj_avec_dn() -> dict:
+def synchroniser_statuts_pj_avec_dn(demarche: str = "apprenants") -> dict:
     """Pour chaque document, corrige deux écarts selon la réalité DN (fichier attaché ou non) :
     1. Grist vs DN : le statut affiché dans l'appli doit refléter DN.
     2. Coche/label DN sans fichier : décochés et retirés.
     Un document dont la PJ est introuvable dans DN n'est jamais modifié.
     """
-    statuts_dn = fetch_statuts_pj_dn()
-    grist = _grist()
-    lignes = grist.get_table_records(kit.GRIST_TABLE)
+    if demarche not in DEMARCHES:
+        raise ValueError(f"Démarche inconnue : {demarche}")
+    documents = _documents(demarche)
+    table = DEMARCHES[demarche]["table_annotations"]
+    statuts_dn = fetch_statuts_pj_dn(demarche)
+    grist = _grist(demarche)
+    lignes = grist.get_table_records(table)
 
-    corriges = {document: [] for document in DOCUMENTS}
+    corriges = {document: [] for document in documents}
     updates = {}
     erreurs = {}
     for row in lignes:
@@ -282,7 +325,7 @@ def synchroniser_statuts_pj_avec_dn() -> dict:
         info = statuts_dn.get(dossier_number)
         if not info:
             continue
-        for document, conf in DOCUMENTS.items():
+        for document, conf in documents.items():
             etat = info[document]
             if not etat["pj_trouvee"]:
                 continue
@@ -304,18 +347,19 @@ def synchroniser_statuts_pj_avec_dn() -> dict:
                     erreurs[f"{dossier_number} ({conf['nom']})"] = str(exc)
 
     if updates:
-        grist.update_grist_data(kit.GRIST_TABLE, list(updates.values()))
+        grist.update_grist_data(table, list(updates.values()))
 
     # Une PJ introuvable sur tous les dossiers : son id a sans doute changé dans DN
-    for document, conf in DOCUMENTS.items():
+    for document, conf in documents.items():
         if statuts_dn and not any(i[document]["pj_trouvee"] for i in statuts_dn.values()):
             ids = ", ".join(p["pj"] for p in conf["pieces"].values())
             erreurs[conf["nom"]] = f"Annotations PJ introuvables dans DN : {ids}"
 
     return {
         "verifies": len(statuts_dn),
-        "corriges": corriges["pedagogique"],
-        "corriges_financier": corriges["financier"],
+        # contrat pédagogique (kit apprenants ou contrat de groupe) / contrat financier
+        "corriges": corriges.get("pedagogique", corriges.get("pedagogique_groupe", [])),
+        "corriges_financier": corriges.get("financier", []),
         "erreurs": erreurs,
     }
 
@@ -330,7 +374,8 @@ def envoyer_document(document: str, dossier_number, pdf_paths: dict) -> None:
     l'envoi est refusé. Nettoyage éventuel : à la main, côté instructeur DN.
     """
     conf = _doc(document)
-    dossier_id, grist_row_id = _get_dossier_and_annotation_ids(dossier_number)
+    demarche = conf["demarche"]
+    dossier_id, grist_row_id = _get_dossier_and_annotation_ids(dossier_number, demarche)
 
     annotations = _annotations_dossier(dossier_number)
     if conf["coche"] not in annotations:
@@ -356,7 +401,7 @@ def envoyer_document(document: str, dossier_number, pdf_paths: dict) -> None:
 
     # Confirmé incomplet côté DN : Grist peut être remis à jour même avant l'envoi
     # (utile si l'envoi échoue plus loin : le statut reste honnête).
-    _marquer_envoye_dans_grist(grist_row_id, conf["colonne_grist"], False)
+    _marquer_envoye_dans_grist(grist_row_id, conf["colonne_grist"], False, demarche)
 
     modifications = []
     for pdf, piece in a_envoyer:
@@ -370,7 +415,7 @@ def envoyer_document(document: str, dossier_number, pdf_paths: dict) -> None:
 
     _ajouter_label(dossier_id, conf["label"])
 
-    _marquer_envoye_dans_grist(grist_row_id, conf["colonne_grist"], True)
+    _marquer_envoye_dans_grist(grist_row_id, conf["colonne_grist"], True, demarche)
 
 
 def envoyer_kit_pedagogique(dossier_number, pdf_path: str) -> None:

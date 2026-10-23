@@ -1,7 +1,7 @@
 """
 Mobilités de groupe (démarche 156967) : liste affichée dans la page Groupe.
 
-Lecture seule pour l'instant : pas de génération ni d'envoi de documents.
+Génération et envoi du contrat pédagogique de groupe : voir generation.py et dn.py.
 """
 
 import os
@@ -69,6 +69,8 @@ def list_groupes() -> list[dict]:
                 "state": clean_text(dossier.get("state")),
                 "envoye_pedagogique": bool(annot.get("contrat_pedagogique_envoye_par_l_ensfea")),
                 "envoye_financier": bool(annot.get("contrat_financier_envoye_par_l_ensfea")),
+                # statut de génération, non persisté (mémoire de la session)
+                "statuts": {"pedagogique_groupe": "non_genere"},
             }
         )
     groupes.sort(key=lambda g: (g["titre"].lower(), g["dossier_number"]))
