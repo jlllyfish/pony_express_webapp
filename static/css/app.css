@@ -807,3 +807,8 @@ body.vue-groupes .apprenants-only {
   text-align: center;
   line-height: 1.3;
 }
+
+/* Tuile groupe : bloc effectifs séparé des dates */
+.card-effectifs {
+  margin-top: 12px;
+}

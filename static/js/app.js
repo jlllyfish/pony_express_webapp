@@ -209,14 +209,17 @@
           ${activite ? `<p class="card-dates">${calendarIcon}${activite}</p>` : ""}
           ${trajet ? `<p class="card-dates card-dates--soft">${calendarIcon}${trajet}</p>` : ""}
 
-          <p class="card-dates">${svg(usersIcon)}${g.effectif ?? "?"} apprenant${g.effectif > 1 ? "s" : ""}</p>
-          <p class="card-dates">${svg(accompIcon)}Accompagnateurs : ${g.accompagnateurs || "?"}</p>
+          <div class="card-effectifs">
+            <p class="card-dates">${svg(usersIcon)}${g.effectif ?? "?"} apprenant${g.effectif > 1 ? "s" : ""}</p>
+            <p class="card-dates">${svg(accompIcon)}Accompagnateurs : ${g.accompagnateurs || "?"}</p>
+          </div>
 
           <div class="card-checks">
             <span class="check-item">${coche(g.envoye_pedagogique)} Contrat pédagogique</span>
             <span class="check-item">${coche(g.envoye_financier)} Contrat financier</span>
           </div>
         </div>
+        <div class="card-status-bar ${complet ? "is-envoye" : g.envoye_pedagogique || g.envoye_financier ? "is-genere" : ""}"></div>
         <p class="card-etablissement">${etabIcon}${g.etablissement}</p>
       </article>
     `;
