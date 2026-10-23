@@ -792,3 +792,18 @@ a {
 .card-download + .card-download {
   margin-top: 6px;
 }
+
+/* Page Groupe : pas de génération ni d'envoi pour l'instant */
+body.vue-groupes .apprenants-only {
+  display: none;
+}
+.card-avatar--groupe svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Libellé des boutons d'action : un seul bloc de texte, centré */
+.pill-label {
+  text-align: center;
+  line-height: 1.3;
+}

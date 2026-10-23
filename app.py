@@ -8,13 +8,14 @@ from flask import Flask, jsonify, render_template, request, send_file
 
 from service.dn import DOCUMENTS, envoyer_document, synchroniser_statuts_pj_avec_dn
 from service.dossiers import list_dossiers, list_etablissements
+from service.groupes import list_groupes
 from service.generation import TEMPLATES, generate_document, generate_pieces
 
 app = Flask(__name__)
 
 # Pas de base de données : le doc Grist est la source de vérité.
 # Ce cache mémoire évite de retaper Grist à chaque requête ; un restart le reconstruit.
-_cache = {"dossiers": None}
+_cache = {"dossiers": None, "groupes": None}
 
 
 def get_dossiers(refresh: bool = False):
@@ -38,6 +39,18 @@ def api_dossiers():
             "etablissements": list_etablissements(dossiers),
         }
     )
+
+
+@app.get("/api/groupes")
+def api_groupes():
+    """Mobilités de groupe (démarche 156967), lecture seule."""
+    try:
+        if _cache["groupes"] is None or request.args.get("refresh") == "1":
+            _cache["groupes"] = list_groupes()
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": str(exc)}), 500
+    groupes = _cache["groupes"]
+    return jsonify({"dossiers": groupes, "etablissements": list_etablissements(groupes)})
 
 
 @app.post("/api/dossiers/sync-dn")
