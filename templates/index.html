@@ -12,7 +12,7 @@
   <body>
     <nav class="rail" aria-label="Navigation principale">
       <div class="rail-icon-wrap">
-        <a class="rail-icon rail-icon--active" href="#" aria-current="page">
+        <a class="rail-icon rail-icon--active" href="#apprenants" data-view="apprenants" aria-current="page">
           <svg
             width="20"
             height="20"
@@ -34,7 +34,7 @@
       </div>
 
       <div class="rail-icon-wrap">
-        <a class="rail-icon" href="#">
+        <a class="rail-icon" href="#groupes" data-view="groupes">
           <svg
             width="20"
             height="20"
@@ -202,9 +202,9 @@
         <span id="count-total">0</span> dossiers
       </p>
 
-      <label class="field-label">Document à traiter</label>
+      <label class="field-label apprenants-only">Document à traiter</label>
       <div
-        class="segmented segmented--document"
+        class="segmented segmented--document apprenants-only"
         role="radiogroup"
         aria-label="Document à générer et envoyer"
       >
@@ -244,8 +244,10 @@
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87" />
           </svg>
-          Générer <span class="doc-label">le kit péda + attestation</span>
-          <span id="sel-count">(0)</span>
+          <span class="pill-label"
+            >Générer <span class="doc-label">le kit péda + attestation</span>
+            <span id="sel-count">(0)</span></span
+          >
         </button>
         <button id="btn-send" class="pill pill-dark" disabled>
           <svg
@@ -259,7 +261,9 @@
             <path d="M22 2 11 13" />
             <path d="M22 2 15 22l-4-9-9-4Z" />
           </svg>
-          Envoyer <span class="doc-label">le kit péda + attestation</span>
+          <span class="pill-label"
+            >Envoyer <span class="doc-label">le kit péda + attestation</span></span
+          >
         </button>
       </div>
 
@@ -275,7 +279,7 @@
 
     <main class="content">
       <header class="content-header">
-        <h1>Mobilités Apprenant</h1>
+        <h1 id="page-title">Mobilités Apprenant</h1>
       </header>
 
       <div id="cards" class="card-grid" aria-live="polite">

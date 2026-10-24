@@ -7,10 +7,28 @@
   let filterFinancier = "tous";
   // Document traité par les boutons Générer / Envoyer
   let documentActif = "pedagogique";
+  // Page affichée : "apprenants" (démarche 128447) ou "groupes" (démarche 156967)
+  let vue = "apprenants";
+  const VUES = {
+    apprenants: {
+      api: "/api/dossiers",
+      // document par défaut (le sélecteur permet de choisir le financier)
+      document: "pedagogique",
+      titre: "Mobilités Apprenant",
+      recherche: "Nom du participant",
+    },
+    groupes: {
+      api: "/api/groupes",
+      document: "pedagogique_groupe",
+      titre: "Mobilités de groupe",
+      recherche: "Centre constitutif",
+    },
+  };
   const DOCUMENTS = {
     pedagogique: {
       court: "le kit péda + attestation",
       nom: "kit pédagogique et de l'attestation",
+      champ: "envoye_pedagogique", // statut d'envoi lu dans la tuile
       // PDF téléchargeables séparément
       pdfs: [
         ["pedagogique", "kit pédagogique"],
@@ -20,9 +38,23 @@
     financier: {
       court: "le contrat financier",
       nom: "contrat financier",
+      champ: "envoye_financier",
       pdfs: [["financier", "contrat financier"]],
     },
+    pedagogique_groupe: {
+      court: "le contrat péda",
+      nom: "contrat pédagogique",
+      champ: "envoye_pedagogique",
+      pdfs: [["pedagogique_groupe", "contrat pédagogique"]],
+    },
   };
+
+  function setDocument(value) {
+    documentActif = value;
+    document
+      .querySelectorAll(".doc-label")
+      .forEach((span) => (span.textContent = DOCUMENTS[value].court));
+  }
 
   const el = {
     cards: document.getElementById("cards"),
@@ -127,10 +159,12 @@
 
     const query = el.search.value.trim().toLowerCase();
     if (!query) return true;
-    // recherche "starts with" sur nom ou prénom
+    // groupes : le centre constitutif contient la saisie
+    if (vue === "groupes") return (dossier.titre || "").toLowerCase().includes(query);
+    // apprenants : recherche "starts with" sur nom ou prénom
     return (
-      dossier.nom.toLowerCase().startsWith(query) ||
-      dossier.prenom.toLowerCase().startsWith(query)
+      (dossier.nom || "").toLowerCase().startsWith(query) ||
+      (dossier.prenom || "").toLowerCase().startsWith(query)
     );
   }
 
@@ -150,9 +184,82 @@
     return ` <span class="card-duree">(${Math.round((f - d) / 86400000) + 1} j)</span>`;
   }
 
+  // Tuile d'une mobilité de groupe (lecture seule)
+  function cardGroupe(g) {
+    const complet = g.envoye_pedagogique && g.envoye_financier;
+    const statut = g.envoye_pedagogique
+      ? "envoye"
+      : (g.statuts || {}).pedagogique_groupe || "non_genere";
+    const downloadLink =
+      statut !== "non_genere"
+        ? `<a class="card-download" href="/api/kits/${g.dossier_number}/download?document=pedagogique_groupe">Télécharger le PDF<br>(contrat pédagogique)</a>`
+        : "";
+    const checked = selected.has(String(g.dossier_number)) ? "checked" : "";
+    const activite =
+      g.date_debut_activite || g.date_fin_activite
+        ? `${g.date_debut_activite || "?"} → ${g.date_fin_activite || "?"}${duree(g.date_debut_activite, g.date_fin_activite)}`
+        : "";
+    const trajet =
+      g.date_trajet_aller || g.date_trajet_retour
+        ? `Trajet ${g.date_trajet_aller || "?"} → ${g.date_trajet_retour || "?"}`
+        : "";
+    const svg = (paths, cls = "date-icon") =>
+      `<svg width="14" height="14" class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+    const calendarIcon = svg('<path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/>');
+    const etabIcon = svg('<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>', "etab-icon");
+    const usersIcon = '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>';
+    const accompIcon = '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>';
+    const coche = (ok) =>
+      ok
+        ? `<svg width="16" height="16" class="check-icon is-done" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" fill="currentColor"/><path d="M6.3 10.3l2.3 2.3 4.7-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+        : `<svg width="16" height="16" class="check-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6"/></svg>`;
+
+    return `
+      <article class="card" data-dossier="${g.dossier_number}">
+        <div class="card-avatar card-avatar--groupe${complet ? " is-complet" : ""}" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${usersIcon}</svg>
+        </div>
+        <div class="card-body">
+          <div class="card-header-row">
+            <h3 class="card-title">${g.titre || "Centre non renseigné"}</h3>
+            <span class="pill-pays-wrap" data-full="${g.pays_accueil || ""}">
+              <span class="pill-pays">${g.pays_accueil || "Pays ?"}</span>
+            </span>
+          </div>
+          <hr class="card-divider">
+
+          <a class="card-sub card-dossier-link"
+             href="https://demarche.numerique.gouv.fr/procedures/${g.demarche}/a-suivre/dossiers/${g.dossier_number}"
+             target="_blank" rel="noopener noreferrer">Dossier ${g.dossier_number}</a>
+
+          ${activite ? `<p class="card-dates">${calendarIcon}${activite}</p>` : ""}
+          ${trajet ? `<p class="card-dates card-dates--soft">${calendarIcon}${trajet}</p>` : ""}
+
+          <div class="card-effectifs">
+            <p class="card-dates">${svg(usersIcon)}${g.effectif ?? "?"} apprenant${g.effectif > 1 ? "s" : ""}</p>
+            <p class="card-dates">${svg(accompIcon)}Accompagnateurs : ${g.accompagnateurs || "?"}</p>
+          </div>
+
+          <div class="card-checks">
+            <span class="check-item">${coche(g.envoye_pedagogique)} Contrat pédagogique</span>
+            <span class="check-item">${coche(g.envoye_financier)} Contrat financier</span>
+          </div>
+        </div>
+        ${downloadLink}
+        <div class="card-status-bar ${complet ? "is-envoye" : g.envoye_pedagogique || g.envoye_financier ? "is-genere" : ""}"></div>
+        <p class="card-etablissement">${etabIcon}${g.etablissement}</p>
+        <label class="card-select">
+          <input type="checkbox" data-dossier="${g.dossier_number}" ${checked}
+                 aria-label="Sélectionner le dossier ${g.dossier_number}">
+        </label>
+      </article>
+    `;
+  }
+
   function cardTemplate(dossier) {
+    if (vue === "groupes") return cardGroupe(dossier);
     // Statut du document actuellement choisi dans le sélecteur
-    const statut = dossier[`envoye_${documentActif}`]
+    const statut = dossier[DOCUMENTS[documentActif].champ]
       ? "envoye"
       : (dossier.statuts || {})[documentActif] || "non_genere";
     const statusClass =
@@ -280,20 +387,23 @@
   }
 
   async function loadDossiers(refresh) {
-    const url = refresh ? "/api/dossiers?refresh=1" : "/api/dossiers";
+    const vueChargee = vue;
+    const api = VUES[vue].api;
+    const url = refresh ? `${api}?refresh=1` : api;
     el.btnRefresh.disabled = true;
     const previousLabel = el.btnRefresh.textContent;
     if (refresh) el.btnRefresh.textContent = "Rafraîchissement…";
 
     const res = await fetch(url);
     if (!res.ok) {
-      el.cards.innerHTML =
-        '<p class="empty-state">Erreur de chargement des dossiers.</p>';
+      const err = await res.json().catch(() => ({}));
+      el.cards.innerHTML = `<p class="empty-state">Erreur de chargement des dossiers.${err.error ? `<br>${err.error}` : ""}</p>`;
       el.btnRefresh.disabled = false;
       el.btnRefresh.textContent = previousLabel;
       return;
     }
     const data = await res.json();
+    if (vueChargee !== vue) return; // la page a changé pendant le chargement
     allDossiers = data.dossiers;
     el.filterEtab.innerHTML =
       '<option value="">Tous les établissements</option>';
@@ -404,7 +514,7 @@
           (d) => String(d.dossier_number) === id,
         );
         if (dossier) {
-          dossier[`envoye_${doc}`] = true;
+          dossier[DOCUMENTS[doc].champ] = true;
         }
         successCount++;
       } catch (err) {
@@ -434,7 +544,11 @@
     showToastProgress("Vérification avec DN en cours…", 0, 1);
 
     try {
-      const res = await fetch("/api/dossiers/sync-dn", { method: "POST" });
+      const res = await fetch("/api/dossiers/sync-dn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ demarche: vue }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "erreur inconnue");
 
@@ -488,16 +602,38 @@
     else selectNone();
   });
   wireSegmented('[data-filter="kit"]', (value) => (filterKit = value));
-  wireSegmented('[data-filter="document"]', (value) => {
-    documentActif = value;
-    document
-      .querySelectorAll(".doc-label")
-      .forEach((span) => (span.textContent = DOCUMENTS[value].court));
-  });
+  wireSegmented('[data-filter="document"]', setDocument);
   wireSegmented(
     '[data-filter="financier"]',
     (value) => (filterFinancier = value),
   );
 
-  loadDossiers(true);
+  // Navigation entre les pages par le rail (#apprenants, #groupes)
+  function setVue() {
+    const h = location.hash.slice(1);
+    vue = VUES[h] ? h : "apprenants";
+    document.body.classList.toggle("vue-groupes", vue === "groupes");
+    // apprenants : document choisi dans le sélecteur ; groupes : contrat péda groupe
+    const actif = document.querySelector('[data-filter="document"].is-active');
+    setDocument(vue === "groupes" ? VUES.groupes.document : (actif && actif.dataset.value) || "pedagogique");
+    document.getElementById("page-title").textContent = VUES[vue].titre;
+    el.search.placeholder = VUES[vue].recherche;
+    document.querySelectorAll(".rail-icon[data-view]").forEach((a) => {
+      const on = a.dataset.view === vue;
+      a.classList.toggle("rail-icon--active", on);
+      if (on) a.setAttribute("aria-current", "page");
+      else a.removeAttribute("aria-current");
+    });
+    selected.clear();
+    el.countVisible.textContent = "0";
+    el.countTotal.textContent = "0";
+    el.search.value = "";
+    el.filterEtab.value = "";
+    allDossiers = [];
+    el.cards.innerHTML = '<p class="empty-state">Chargement des dossiers…</p>';
+    loadDossiers(false);
+  }
+  window.addEventListener("hashchange", setVue);
+
+  setVue();
 })();

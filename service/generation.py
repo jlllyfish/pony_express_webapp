@@ -11,19 +11,26 @@ l'UI doit pouvoir cibler une sélection précise.
 from pony_express.service.grist import GristService
 from pony_express.service.pdf import generate_pdf
 from pony_express.service.utils import TEMPLATES_FOLDER_PATH
-from pony_express.templates import attestation_presence, contrat_financier, contrat_pedagogique
+from pony_express.templates import (
+    attestation_presence,
+    contrat_financier,
+    contrat_pedagogique,
+    contrat_pedagogique_groupe,
+)
 
 # PDF -> (module du template, Enum de mapping Grist)
 TEMPLATES = {
     "pedagogique": (contrat_pedagogique, contrat_pedagogique.STUDENT_DATA),
     "attestation": (attestation_presence, attestation_presence.STUDENT_DATA),
     "financier": (contrat_financier, contrat_financier.PERSON_DATA),
+    "pedagogique_groupe": (contrat_pedagogique_groupe, contrat_pedagogique_groupe.STUDENT_DATA),
 }
 
 # Document traité dans l'interface -> PDF produits ensemble
 PIECES = {
     "pedagogique": ["pedagogique", "attestation"],
     "financier": ["financier"],
+    "pedagogique_groupe": ["pedagogique_groupe"],
 }
 
 
