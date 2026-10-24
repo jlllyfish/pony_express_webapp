@@ -87,12 +87,27 @@ DOCUMENTS = {
         "label": os.environ.get("DN_GROUPE_LABEL_PEDAGOGIQUE", "TGFiZWwtNTMyNjkw"),
         "colonne_grist": "contrat_pedagogique_envoye_par_l_ensfea",
     },
+    "financier_groupe": {
+        "demarche": "groupes",
+        "nom": "contrat financier (groupe)",
+        "pieces": {
+            "financier_groupe": {
+                "nom": "contrat financier",
+                "pj": os.environ.get("DN_GROUPE_PJ_FINANCIER", "Q2hhbXAtMjYwODUyMA=="),
+            },
+        },
+        "coche": os.environ.get("DN_GROUPE_ENVOYE_FINANCIER", "Q2hhbXAtMjg2Mzg1Nw=="),
+        # Kit financier envoyé (ENSFEA)
+        "label": os.environ.get("DN_GROUPE_LABEL_FINANCIER", "TGFiZWwtNTMyNjg5"),
+        "colonne_grist": "contrat_financier_envoye_par_l_ensfea",
+    },
 }
 
 # Annotations voisines au libellé proche : l'app ne doit JAMAIS les modifier
 ANNOTATIONS_PROTEGEES = {
     "Q2hhbXAtNjk5NDc1MA==",  # apprenants : case voisine
     "Q2hhbXAtNjk5NDc1Nw==",  # groupes : « Contrat pédagogique envoyé par l'établissement »
+    "Q2hhbXAtMjg2MzkzMA==",  # groupes : « Contrat financier envoyé par l'établissement »
 }
 
 HEADERS = {"Content-Type": "application/json", "Authorization": f"Bearer {API_TOKEN}"}
@@ -359,7 +374,7 @@ def synchroniser_statuts_pj_avec_dn(demarche: str = "apprenants") -> dict:
         "verifies": len(statuts_dn),
         # contrat pédagogique (kit apprenants ou contrat de groupe) / contrat financier
         "corriges": corriges.get("pedagogique", corriges.get("pedagogique_groupe", [])),
-        "corriges_financier": corriges.get("financier", []),
+        "corriges_financier": corriges.get("financier", corriges.get("financier_groupe", [])),
         "erreurs": erreurs,
     }
 
