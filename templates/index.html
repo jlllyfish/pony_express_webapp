@@ -202,6 +202,30 @@
         <span id="count-total">0</span> dossiers
       </p>
 
+      <label class="field-label">Document à traiter</label>
+      <div
+        class="segmented segmented--document"
+        role="radiogroup"
+        aria-label="Document à générer et envoyer"
+      >
+        <button
+          type="button"
+          class="segmented-option is-active"
+          data-filter="document"
+          data-value="pedagogique"
+        >
+          Kit péda + attestation
+        </button>
+        <button
+          type="button"
+          class="segmented-option"
+          data-filter="document"
+          data-value="financier"
+        >
+          Contrat financier
+        </button>
+      </div>
+
       <label class="select-all-toggle">
         <input type="checkbox" id="toggle-select-all" />
         Tout sélectionner
@@ -220,7 +244,8 @@
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87" />
           </svg>
-          Générer <span id="sel-count">(0)</span>
+          Générer <span class="doc-label">le kit péda + attestation</span>
+          <span id="sel-count">(0)</span>
         </button>
         <button id="btn-send" class="pill pill-dark" disabled>
           <svg
@@ -234,7 +259,7 @@
             <path d="M22 2 11 13" />
             <path d="M22 2 15 22l-4-9-9-4Z" />
           </svg>
-          Envoyer
+          Envoyer <span class="doc-label">le kit péda + attestation</span>
         </button>
       </div>
 

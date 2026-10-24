@@ -776,3 +776,19 @@ a {
 .card-duree {
   opacity: 0.7;
 }
+
+/* Les deux contrats envoyés : avatar plein, même vert que les coches */
+.card-avatar.is-complet {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+
+/* Sélecteur de document : libellés longs sur deux lignes */
+.segmented--document .segmented-option {
+  white-space: normal;
+  line-height: 1.2;
+}
+.card-download + .card-download {
+  margin-top: 6px;
+}

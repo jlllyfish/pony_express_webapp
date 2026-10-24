@@ -58,8 +58,8 @@ def list_dossiers() -> list[dict]:
                 "date_fin_activite": _date(champ, CHAMP_DATE_FIN),
                 "envoye_pedagogique": bool(row.get("contrat_pedagogique_envoye_par_l_ensfea")),
                 "envoye_financier": bool(row.get("contrat_financier_envoye_par_l_ensfea")),
-                # statut non persisté pour l'instant (Phase 4 : colonnes dédiées dans Grist)
-                "statut": "non_genere",
+                # statut de génération par document, non persisté (mémoire de la session)
+                "statuts": {"pedagogique": "non_genere", "financier": "non_genere"},
             }
         )
     return dossiers
