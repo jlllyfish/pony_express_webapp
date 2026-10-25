@@ -26,6 +26,22 @@
       titre: "Mobilités de groupe",
       recherche: "Centre constitutif",
     },
+    personnel: {
+      api: null,
+      bientot: "La page des mobilités du personnel est en préparation : liste des dossiers, génération et envoi des kits.",
+      documents: { pedagogique: "pedagogique", financier: "financier" },
+      libellePedagogique: "Kit péda + attestation",
+      titre: "Mobilités du personnel",
+      recherche: "",
+    },
+    experts: {
+      api: null,
+      bientot: "La page des mobilités d'experts invités est en préparation. Elle sera branchée dès que la démarche DN existera.",
+      documents: { pedagogique: "pedagogique", financier: "financier" },
+      libellePedagogique: "Kit péda + attestation",
+      titre: "Experts invités",
+      recherche: "",
+    },
     dashboard: {
       api: null,
       documents: { pedagogique: "pedagogique", financier: "financier" },
@@ -452,6 +468,7 @@
 
   async function loadDossiers(refresh) {
     if (vue === "dashboard") return loadDashboard(refresh);
+    if (VUES[vue].bientot) return;
     const vueChargee = vue;
     const api = VUES[vue].api;
     const url = refresh ? `${api}?refresh=1` : api;
@@ -932,6 +949,12 @@
     vue = VUES[h] ? h : "apprenants";
     document.body.classList.toggle("vue-groupes", vue === "groupes");
     document.body.classList.toggle("vue-dashboard", vue === "dashboard");
+    // Pages pas encore construites : message « Bientôt disponible »
+    document.body.classList.toggle("vue-bientot", Boolean(VUES[vue].bientot));
+    if (VUES[vue].bientot) {
+      document.getElementById("bientot-titre").textContent = VUES[vue].titre;
+      document.getElementById("bientot-texte").textContent = VUES[vue].bientot;
+    }
     // Le sélecteur garde son choix (péda / financier) d'une page à l'autre
     const actif = document.querySelector('[data-filter="document"].is-active');
     setDocument(VUES[vue].documents[(actif && actif.dataset.value) || "pedagogique"]);
@@ -955,6 +978,7 @@
       loadDashboard();
       return;
     }
+    if (VUES[vue].bientot) return;
     el.cards.innerHTML = '<p class="empty-state">Chargement des dossiers…</p>';
     loadDossiers(false);
   }
