@@ -724,15 +724,47 @@
       </div>`;
   }
 
+  // Infobulles façon Metabase : fond foncé, pastille, valeur, %, total
+  let infobulles = [];
+  function infobulle(titre, lignes, active) {
+    infobulles.push({ titre, lignes, active });
+    return `data-tip="${infobulles.length - 1}"`;
+  }
+  const tipEl = document.createElement("div");
+  tipEl.className = "dash-tip";
+  tipEl.hidden = true;
+  document.body.appendChild(tipEl);
+  function afficherInfobulle(ev) {
+    const cible = ev.target.closest("[data-tip]");
+    const tip = cible && infobulles[cible.dataset.tip];
+    if (!tip) { tipEl.hidden = true; return; }
+    const total = tip.lignes.reduce((t, l) => t + l.valeur, 0);
+    tipEl.innerHTML = `<div class="dash-tip-titre">${tip.titre}</div><table>${
+      tip.lignes.map((l, i) => `<tr class="${i === tip.active ? "actif" : ""}">
+        <td><span class="dash-puce" style="background:${l.couleur}"></span>${l.libelle}</td>
+        <td>${nf(l.valeur)}</td><td>${pct(l.valeur, total)} %</td></tr>`).join("")
+    }<tr class="total"><td>Total</td><td>${nf(total)}</td><td>100 %</td></tr></table>`;
+    tipEl.hidden = false;
+    const m = 14, w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+    let x = ev.clientX + m, y = ev.clientY + m;
+    if (x + w > innerWidth - 8) x = ev.clientX - w - m;
+    if (y + h > innerHeight - 8) y = ev.clientY - h - m;
+    tipEl.style.left = `${x}px`;
+    tipEl.style.top = `${y}px`;
+  }
+  document.getElementById("view-dashboard").addEventListener("mousemove", afficherInfobulle);
+  document.getElementById("view-dashboard").addEventListener("mouseleave", () => { tipEl.hidden = true; });
+
   // Donut SVG : segments [{libelle, valeur, couleur}] séparés de 2 px
   function donut(segments, centre, sousCentre, aria) {
     const total = segments.reduce((t, s) => t + s.valeur, 0) || 1;
     const r = 54;
     const c = 2 * Math.PI * r;
     let debut = 0;
-    const arcs = segments.map((s) => {
+    const lignes = segments.map(({ libelle, valeur, couleur }) => ({ libelle, valeur, couleur }));
+    const arcs = segments.map((s, i) => {
       const longueur = (s.valeur / total) * c;
-      const arc = `<circle class="dash-seg" cx="64" cy="64" r="${r}" stroke="${s.couleur}" stroke-dasharray="${Math.max(0, longueur - 2).toFixed(2)} ${c.toFixed(2)}" stroke-dashoffset="${(-debut).toFixed(2)}"><title>${s.libelle} : ${nf(s.valeur)} (${pct(s.valeur, total)} %)</title></circle>`;
+      const arc = `<circle class="dash-seg" cx="64" cy="64" r="${r}" stroke="${s.couleur}" stroke-dasharray="${Math.max(0, longueur - 2).toFixed(2)} ${c.toFixed(2)}" stroke-dashoffset="${(-debut).toFixed(2)}" ${infobulle(aria, lignes, i)}></circle>`;
       debut += longueur;
       return arc;
     }).join("");
@@ -747,6 +779,7 @@
 
   function renderDashboard(d) {
     const t = d.totaux;
+    infobulles = [];
     document.getElementById("dash-exemple").hidden = !d.exemple;
     const typeChoisi = dash.type.options[dash.type.selectedIndex];
     const filtres = [
@@ -771,16 +804,17 @@
       .join("");
     document.getElementById("dash-etabs").innerHTML = d.par_etablissement.length
       ? d.par_etablissement.map((e) => {
+          const lignes = typesVisibles.map(([cle, lib]) => ({ libelle: lib, valeur: e[cle], couleur: COULEURS_TYPES[cle] }));
           const segments = typesVisibles
-            .filter(([cle]) => e[cle] > 0)
-            .map(([cle, lib]) => `<span class="dash-barre-seg" style="flex:${e[cle]} 1 0;background:${COULEURS_TYPES[cle]}" title="${e.nom} : ${lib} ${nf(e[cle])}"></span>`)
+            .map(([cle], i) => e[cle] > 0
+              ? `<span class="dash-barre-seg" style="flex:${e[cle]} 1 0;background:${COULEURS_TYPES[cle]}" ${infobulle(e.nom, lignes, i)}></span>`
+              : "")
             .join("");
-          const detail = typesVisibles.map(([cle, lib]) => `${lib} ${nf(e[cle])}`).join(", ");
           return `
         <div class="dash-barre">
           <span class="dash-barre-nom" title="${e.nom}">${e.nom}</span>
           <div class="dash-barre-piste"><div class="dash-barre-val" style="width:${(e.mobilites / max) * 100}%">${segments}</div></div>
-          <span class="dash-barre-nb" title="${detail}">${nf(e.mobilites)}</span>
+          <span class="dash-barre-nb" ${infobulle(e.nom, lignes, -1)}>${nf(e.mobilites)}</span>
           <span class="dash-barre-montant">${euros(e.montant_engage)}</span>
         </div>`;
         }).join("")

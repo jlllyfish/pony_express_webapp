@@ -1332,3 +1332,17 @@ body.vue-dashboard .dashboard {
   font-size: 11px;
   color: var(--ink-soft);
 }
+
+/* Infobulle façon Metabase */
+.dash-donut-centre,.dash-donut-sous{pointer-events:none}
+.dash-tip{position:fixed;z-index:1000;pointer-events:none;background:#2E2D45;color:#fff;border-radius:8px;padding:10px 12px;font-size:13px;box-shadow:0 8px 24px rgba(20,18,40,.28);min-width:200px}
+.dash-tip-titre{color:#B9B7D3;font-size:12px;margin-bottom:6px}
+.dash-tip table{border-collapse:collapse;width:100%}
+.dash-tip td{padding:5px 6px;white-space:nowrap}
+.dash-tip td:first-child{padding-left:4px}
+.dash-tip td:nth-child(2){text-align:right;font-weight:700;padding-left:18px}
+.dash-tip td:nth-child(3){text-align:right;color:#DCDAF0}
+.dash-tip tr.actif td{background:rgba(255,255,255,.08)}
+.dash-tip tr.total td{border-top:1px solid rgba(255,255,255,.18);padding-top:8px;color:#DCDAF0}
+.dash-tip tr.total td:nth-child(2){color:#fff}
+.dash-tip .dash-puce{display:inline-block;border-radius:50%;margin-right:8px;vertical-align:-1px}
