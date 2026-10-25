@@ -947,8 +947,11 @@
       const tip = p ? infobulle(f.nom, lignesPays(p), -1) : "";
       return `<path class="carte-pays${p ? " carte-pays--actif" : ""}" d="${f.d}" fill="${couleur(p ? p.total : 0)}" ${tip}></path>`;
     }).join("");
+    // Petits pays avec des mobilités (Malte, Luxembourg…) : pastille au centre, au-dessus des autres
+    const reperes = fond.pays.filter((f) => f.c && index[f.iso2]).map((f) =>
+      `<circle class="carte-pays carte-pays--actif carte-repere" cx="${f.c[0]}" cy="${f.c[1]}" r="6" fill="${couleur(index[f.iso2].total)}" ${infobulle(f.nom, lignesPays(index[f.iso2]), -1)}></circle>`).join("");
     document.getElementById("dash-carte").innerHTML =
-      `<svg viewBox="0 0 ${fond.largeur} ${fond.hauteur}" role="img" aria-label="Carte des mobilités par pays d'accueil">${paths}</svg>`;
+      `<svg viewBox="0 0 ${fond.largeur} ${fond.hauteur}" role="img" aria-label="Carte des mobilités par pays d'accueil">${paths}${reperes}</svg>`;
     document.getElementById("dash-carte-legende").innerHTML =
       `<span>1</span>${PALETTE_CARTE.map((c) => `<i style="background:${c}"></i>`).join("")}<span>${nf(max)} mobilités</span>` +
       `<i class="carte-legende-aucune" style="background:${GRIS_CARTE}"></i><span>aucune</span>`;

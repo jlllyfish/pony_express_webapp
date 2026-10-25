@@ -1546,3 +1546,8 @@ body.vue-bientot #btn-refresh { display: none; }
 @media (max-width: 1100px) {
   .dash-carte { grid-template-columns: 1fr; }
 }
+/* pastille des petits pays : liseré violet pour rester visible même en teinte claire */
+.carte-repere {
+  stroke: var(--violet);
+  stroke-width: 1.5;
+}

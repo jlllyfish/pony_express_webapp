@@ -24,7 +24,10 @@ for (const f of geo.features) {
   if (!d) continue;
   const [[x0, y0], [x1, y1]] = path.bounds(f);
   if (x1 < 0 || y1 < 0 || x0 > W || y0 > H) continue;
-  pays.push({ iso2, nom: countries.getName(iso2, "fr") || f.properties.name, d });
+  const entree = { iso2, nom: countries.getName(iso2, "fr") || f.properties.name, d };
+  // petits pays (Malte, Luxembourg, Andorre…) : point repère au centre, sinon invisibles
+  if (path.area(f) < 60) entree.c = path.centroid(f).map((v) => Math.round(v * 10) / 10);
+  pays.push(entree);
 }
 // noms français de tous les pays (pour les mobilités hors du cadre de la carte)
 const noms = countries.getNames("fr", { select: "official" });
