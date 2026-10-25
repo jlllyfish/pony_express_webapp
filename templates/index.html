@@ -131,7 +131,30 @@
         </a>
         <span class="rail-tooltip">Réglages</span>
       </div>
+
+      <form class="rail-deconnexion rail-icon-wrap" method="post" action="{{ url_for('auth.deconnexion') }}">
+        <input type="hidden" name="csrf" value="{{ csrf() }}" />
+        <button class="rail-icon" type="submit" aria-label="Se déconnecter">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <path d="m16 17 5-5-5-5" />
+            <path d="M21 12H9" />
+          </svg>
+        </button>
+        <span class="rail-tooltip">Se déconnecter<br /><small>{{ utilisateur }}</small></span>
+      </form>
     </nav>
+
+    {% if accueil %}
+    <div id="toast-accueil" class="toast-accueil" role="status">
+      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" />
+      <div>
+        <b>Hay {{ accueil }} !</b>
+        <span>Connecté·e : {{ utilisateur }}</span>
+      </div>
+      <button type="button" aria-label="Fermer" onclick="this.parentElement.remove()">×</button>
+    </div>
+    {% endif %}
 
     <aside class="filters">
       <div class="brand">

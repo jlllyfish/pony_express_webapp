@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block titre %}Connexion{% endblock %} · Pony Express</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}" />
+  </head>
+  <body>
+    <div class="page">
+      <section class="gauche">
+        <div class="marque">
+          <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" />
+          <h1>Pony Express</h1>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% for categorie, message in messages %}
+            <p class="message message--{{ categorie }}" role="{{ 'alert' if categorie == 'erreur' else 'status' }}">{{ message }}</p>
+          {% endfor %}
+        {% endwith %}
+
+        <form class="carte" method="post">
+          <input type="hidden" name="csrf" value="{{ csrf() }}" />
+          {% block formulaire %}{% endblock %}
+        </form>
+      </section>
+
+      <section class="droite" aria-hidden="true">
+        <img src="{{ url_for('static', filename='img/connexion-cavalier.webp') }}" alt="" />
+      </section>
+
+      <img class="moow" src="{{ url_for('static', filename='img/logo-moow.svg') }}" alt="Moow by ENSFEA" />
+    </div>
+  </body>
+</html>

@@ -1,0 +1,14 @@
+{% extends "auth_base.html" %}
+{% block titre %}Nouveau mot de passe{% endblock %}
+{% block formulaire %}
+  <p class="consigne">Choisissez un nouveau mot de passe (12 caractères minimum).</p>
+  <label class="champ">
+    <span class="sr-only">Nouveau mot de passe</span>
+    <input type="password" name="mot_de_passe" placeholder="Nouveau mot de passe" autocomplete="new-password" minlength="12" required autofocus />
+  </label>
+  <label class="champ">
+    <span class="sr-only">Confirmation</span>
+    <input type="password" name="confirmation" placeholder="Confirmation" autocomplete="new-password" minlength="12" required />
+  </label>
+  <button type="submit">Enregistrer</button>
+{% endblock %}

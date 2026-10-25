@@ -1,0 +1,14 @@
+{% extends "auth_base.html" %}
+{% block titre %}Connexion{% endblock %}
+{% block formulaire %}
+  <label class="champ">
+    <span class="sr-only">Adresse e-mail</span>
+    <input type="email" name="email" value="{{ email }}" placeholder="Adresse e-mail" autocomplete="username" required autofocus />
+  </label>
+  <label class="champ">
+    <span class="sr-only">Mot de passe</span>
+    <input type="password" name="mot_de_passe" placeholder="Mot de passe" autocomplete="current-password" required />
+  </label>
+  <button type="submit">Se connecter</button>
+  <a class="lien" href="{{ url_for('auth.mot_de_passe_oublie') }}">Mot de passe oublié ?</a>
+{% endblock %}

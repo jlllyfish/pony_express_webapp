@@ -4,7 +4,10 @@ from dotenv import load_dotenv
 
 load_dotenv()  # doit précéder les imports ci-dessous : ils lisent os.environ au chargement
 
-from flask import Flask, jsonify, render_template, request, send_file
+import logging
+import secrets
+
+from flask import Flask, g, jsonify, render_template, request, send_file
 
 from service.dn import DOCUMENTS, envoyer_document, synchroniser_statuts_pj_avec_dn
 from service.dossiers import list_dossiers, list_etablissements
@@ -13,7 +16,18 @@ from service.groupes import list_groupes
 from service.sante import etat_de_sante
 from service.generation import TEMPLATES, generate_document, generate_pieces
 
+from service import auth
+
 app = Flask(__name__)
+
+# Clé de signature des sessions et des liens de réinitialisation : à définir en production
+app.secret_key = os.environ.get("SECRET_KEY")
+if not app.secret_key:
+    app.secret_key = secrets.token_hex(32)
+    logging.getLogger(__name__).warning(
+        "SECRET_KEY absente : clé temporaire, les sessions seront perdues au redémarrage."
+    )
+auth.init_app(app)
 
 # Pas de base de données : le doc Grist est la source de vérité.
 # Ce cache mémoire évite de retaper Grist à chaque requête ; un restart le reconstruit.
@@ -28,7 +42,11 @@ def get_dossiers(refresh: bool = False):
 
 @app.get("/")
 def index():
-    return render_template("index.html")
+    return render_template(
+        "index.html",
+        utilisateur=g.utilisateur["email"],
+        accueil=auth.accueil_a_afficher(),
+    )
 
 
 @app.get("/api/dossiers")
