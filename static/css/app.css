@@ -793,7 +793,7 @@ a {
   margin-top: 6px;
 }
 
-/* Page Groupe : un seul document, pas de sélecteur */
+/* Éléments réservés à la page Apprenants (classe à poser si besoin) */
 body.vue-groupes .apprenants-only {
   display: none;
 }

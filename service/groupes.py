@@ -70,7 +70,7 @@ def list_groupes() -> list[dict]:
                 "envoye_pedagogique": bool(annot.get("contrat_pedagogique_envoye_par_l_ensfea")),
                 "envoye_financier": bool(annot.get("contrat_financier_envoye_par_l_ensfea")),
                 # statut de génération, non persisté (mémoire de la session)
-                "statuts": {"pedagogique_groupe": "non_genere"},
+                "statuts": {"pedagogique_groupe": "non_genere", "financier_groupe": "non_genere"},
             }
         )
     groupes.sort(key=lambda g: (g["titre"].lower(), g["dossier_number"]))

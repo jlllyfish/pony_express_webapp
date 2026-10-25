@@ -14,6 +14,7 @@ from pony_express.service.utils import TEMPLATES_FOLDER_PATH
 from pony_express.templates import (
     attestation_presence,
     contrat_financier,
+    contrat_financier_groupe,
     contrat_pedagogique,
     contrat_pedagogique_groupe,
 )
@@ -24,6 +25,7 @@ TEMPLATES = {
     "attestation": (attestation_presence, attestation_presence.STUDENT_DATA),
     "financier": (contrat_financier, contrat_financier.PERSON_DATA),
     "pedagogique_groupe": (contrat_pedagogique_groupe, contrat_pedagogique_groupe.STUDENT_DATA),
+    "financier_groupe": (contrat_financier_groupe, contrat_financier_groupe.STUDENT_DATA),
 }
 
 # Document traité dans l'interface -> PDF produits ensemble
@@ -31,6 +33,7 @@ PIECES = {
     "pedagogique": ["pedagogique", "attestation"],
     "financier": ["financier"],
     "pedagogique_groupe": ["pedagogique_groupe"],
+    "financier_groupe": ["financier_groupe"],
 }
 
 

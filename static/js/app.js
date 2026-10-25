@@ -13,13 +13,16 @@
     apprenants: {
       api: "/api/dossiers",
       // document par défaut (le sélecteur permet de choisir le financier)
-      document: "pedagogique",
+      // choix du sélecteur « Document à traiter » -> document réel
+      documents: { pedagogique: "pedagogique", financier: "financier" },
+      libellePedagogique: "Kit péda + attestation",
       titre: "Mobilités Apprenant",
       recherche: "Nom du participant",
     },
     groupes: {
       api: "/api/groupes",
-      document: "pedagogique_groupe",
+      documents: { pedagogique: "pedagogique_groupe", financier: "financier_groupe" },
+      libellePedagogique: "Contrat péda",
       titre: "Mobilités de groupe",
       recherche: "Centre constitutif",
     },
@@ -46,6 +49,12 @@
       nom: "contrat pédagogique",
       champ: "envoye_pedagogique",
       pdfs: [["pedagogique_groupe", "contrat pédagogique"]],
+    },
+    financier_groupe: {
+      court: "le contrat financier",
+      nom: "contrat financier",
+      champ: "envoye_financier",
+      pdfs: [["financier_groupe", "contrat financier"]],
     },
   };
 
@@ -184,15 +193,21 @@
     return ` <span class="card-duree">(${Math.round((f - d) / 86400000) + 1} j)</span>`;
   }
 
-  // Tuile d'une mobilité de groupe (lecture seule)
+  // Tuile d'une mobilité de groupe
   function cardGroupe(g) {
     const complet = g.envoye_pedagogique && g.envoye_financier;
-    const statut = g.envoye_pedagogique
+    const doc = DOCUMENTS[documentActif];
+    const statut = g[doc.champ]
       ? "envoye"
-      : (g.statuts || {}).pedagogique_groupe || "non_genere";
+      : (g.statuts || {})[documentActif] || "non_genere";
     const downloadLink =
       statut !== "non_genere"
-        ? `<a class="card-download" href="/api/kits/${g.dossier_number}/download?document=pedagogique_groupe">Télécharger le PDF<br>(contrat pédagogique)</a>`
+        ? doc.pdfs
+            .map(
+              ([pdf, nom]) =>
+                `<a class="card-download" href="/api/kits/${g.dossier_number}/download?document=${pdf}">Télécharger le PDF<br>(${nom})</a>`,
+            )
+            .join("")
         : "";
     const checked = selected.has(String(g.dossier_number)) ? "checked" : "";
     const activite =
@@ -602,7 +617,9 @@
     else selectNone();
   });
   wireSegmented('[data-filter="kit"]', (value) => (filterKit = value));
-  wireSegmented('[data-filter="document"]', setDocument);
+  wireSegmented('[data-filter="document"]', (value) =>
+    setDocument(VUES[vue].documents[value]),
+  );
   wireSegmented(
     '[data-filter="financier"]',
     (value) => (filterFinancier = value),
@@ -613,9 +630,11 @@
     const h = location.hash.slice(1);
     vue = VUES[h] ? h : "apprenants";
     document.body.classList.toggle("vue-groupes", vue === "groupes");
-    // apprenants : document choisi dans le sélecteur ; groupes : contrat péda groupe
+    // Le sélecteur garde son choix (péda / financier) d'une page à l'autre
     const actif = document.querySelector('[data-filter="document"].is-active');
-    setDocument(vue === "groupes" ? VUES.groupes.document : (actif && actif.dataset.value) || "pedagogique");
+    setDocument(VUES[vue].documents[(actif && actif.dataset.value) || "pedagogique"]);
+    document.getElementById("doc-option-pedagogique").textContent =
+      VUES[vue].libellePedagogique;
     document.getElementById("page-title").textContent = VUES[vue].titre;
     el.search.placeholder = VUES[vue].recherche;
     document.querySelectorAll(".rail-icon[data-view]").forEach((a) => {
