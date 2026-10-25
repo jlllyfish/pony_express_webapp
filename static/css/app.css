@@ -1366,3 +1366,23 @@ body.vue-dashboard .dashboard {
   .dash-row { grid-template-columns: 1fr; }
   .dash-etabs { grid-column: auto; }
 }
+
+/* Pages en préparation (#personnel, #experts) */
+.bientot-only { display: none; }
+body.vue-bientot .bientot-only { display: flex; }
+body.vue-bientot .tuiles-only,
+body.vue-bientot .dashboard-only,
+body.vue-bientot .sans-bientot { display: none; }
+.bientot {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  min-height: 60vh;
+  padding: 40px 24px;
+}
+.bientot-logo { width: 120px; height: auto; margin-bottom: 8px; }
+.bientot h1 { margin: 0; font-size: 24px; color: var(--violet-fonce, #2A1A6E); }
+.bientot p { margin: 0; max-width: 460px; color: var(--ink-soft); font-size: 15px; }
+body.vue-bientot #btn-refresh { display: none; }

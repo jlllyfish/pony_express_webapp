@@ -57,7 +57,7 @@
       </div>
 
       <div class="rail-icon-wrap">
-        <a class="rail-icon" href="#">
+        <a class="rail-icon" href="#personnel" data-view="personnel">
           <svg
             width="20"
             height="20"
@@ -76,6 +76,27 @@
           </svg>
         </a>
         <span class="rail-tooltip">Personnel</span>
+      </div>
+
+      <div class="rail-icon-wrap">
+        <a class="rail-icon" href="#experts" data-view="experts">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="15" cy="7" r="4" />
+            <path d="M13 15h5a4 4 0 0 1 4 4v2" />
+            <path d="M2 14h7" />
+            <path d="m6 11 3 3-3 3" />
+          </svg>
+        </a>
+        <span class="rail-tooltip">Experts invités</span>
       </div>
 
       <div class="rail-icon-wrap">
@@ -122,12 +143,14 @@
         <span class="brand-name">Pony Express</span>
       </div>
 
+      <div class="sans-bientot">
       <label class="field-label" for="filter-etablissement"
         >Établissement</label
       >
       <select id="filter-etablissement" class="field-select">
         <option value="">Tous les établissements</option>
       </select>
+      </div>
 
       <div class="dashboard-only">
         <label class="field-label" for="filter-projet">Code projet</label>
@@ -328,6 +351,12 @@
       <div id="cards" class="card-grid tuiles-only" aria-live="polite">
         <p class="empty-state">Chargement des dossiers…</p>
       </div>
+
+      <section class="bientot bientot-only" aria-live="polite">
+        <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" class="bientot-logo" />
+        <h1 id="bientot-titre">Bientôt disponible</h1>
+        <p id="bientot-texte"></p>
+      </section>
 
       <section id="view-dashboard" class="dashboard dashboard-only" aria-labelledby="dash-titre">
         <div class="dash-main">
