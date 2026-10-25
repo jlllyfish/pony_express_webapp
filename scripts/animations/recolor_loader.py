@@ -1,5 +1,5 @@
 """Loader gris (128 px) -> couleurs Pony Express, fond transparent, cactus violets."""
-Usage : python scripts/animations/recolor_loader.py source_gris.webp static/img/loader.webp
+# Usage : python scripts/animations/recolor_loader.py source_gris.webp static/img/loader.webp
 import numpy as np
 from PIL import Image
 from scipy import ndimage
