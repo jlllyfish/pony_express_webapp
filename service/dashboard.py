@@ -1,5 +1,10 @@
 """
-Tableau de bord : lecture des tables Grist (en parallèle) et mémoire de 5 min.
+Tableau de bord : lecture Grist (en parallèle) et mémoire de 5 min.
+
+Lecture par requête SQL Grist : une requête par démarche, limitée aux colonnes
+utiles (dashboard_calculs.colonnes_lues) avec la jointure champs / annotations /
+dossiers faite par Grist. En cas d'échec (colonne absente, SQL indisponible),
+repli sur la lecture complète des tables.
 
 Les règles de calcul, les tables et les colonnes utilisées sont dans
 dashboard_calculs.py : c'est le fichier à modifier pour faire évoluer un indicateur.
@@ -46,6 +51,59 @@ def _lire(doc_id: str, table: str) -> tuple[list[dict], dict]:
     return rows, {"table": table, "lignes": len(rows), "ms": ms}
 
 
+def _sql_demarche(type_mob: str) -> str:
+    """Requête SQL d'une démarche : colonnes utiles des 3 tables, jointes par numéro de dossier."""
+    alias = {"champs": "c", "annotations": "a", "dossiers": "d"}
+    colonnes = ['c."dossier_number" AS "dossier_number"'] + [
+        f'{alias[t]}."{col}" AS "{col}"'
+        for t, cols in calc.colonnes_lues(type_mob).items() for col in cols
+    ]
+    return (
+        f'SELECT {", ".join(colonnes)} FROM "{_table(type_mob, "champs")}" c '
+        f'LEFT JOIN "{_table(type_mob, "annotations")}" a ON a."dossier_number" = c."dossier_number" '
+        f'LEFT JOIN "{_table(type_mob, "dossiers")}" d ON d."dossier_number" = c."dossier_number"'
+    )
+
+
+def _lire_sql(type_mob: str) -> tuple[list[dict], dict]:
+    debut = time.perf_counter()
+    api = GristService(DOCS[type_mob], kit.GRIST_TEAM_SITE, kit.GRIST_SERVER).grist
+    status, rows = api.run_sql(_sql_demarche(type_mob))
+    if status != 200:
+        raise RuntimeError(f"SQL {type_mob} : HTTP {status} {rows}")
+    ms = round((time.perf_counter() - debut) * 1000)
+    nom = f"Demarche_{calc.DEMARCHES[type_mob]['numero']} (SQL)"
+    logger.warning("Dashboard : %s lue en %d ms (%d lignes)", nom, ms, len(rows))
+    return rows, {"table": nom, "lignes": len(rows), "ms": ms}
+
+
+def _charger_sql() -> tuple[dict, list]:
+    """Financier Erasmus + une requête SQL par démarche, en parallèle."""
+    with ThreadPoolExecutor(max_workers=len(calc.TYPES) + 1) as pool:
+        financier = pool.submit(_lire, kit.GRIST_DOC_ID, calc.TABLE_FINANCIER)
+        demarches = {t: pool.submit(_lire_sql, t) for t in calc.TYPES}
+        rows_fin, chrono_fin = financier.result()
+        resultats = {t: f.result() for t, f in demarches.items()}
+    donnees = {
+        "projets": calc.projets(rows_fin),
+        "mobilites": [m for t, (rows, _) in resultats.items() for m in calc.mobilites_jointes(t, rows)],
+    }
+    return donnees, [chrono_fin] + [c for _, c in resultats.values()]
+
+
+def _charger_tables() -> tuple[dict, list]:
+    """Repli : lecture complète des tables."""
+    tables, chrono = _lire_tables()
+    donnees = {
+        "projets": calc.projets(tables[calc.TABLE_FINANCIER]),
+        "mobilites": [
+            m for t in calc.TYPES
+            for m in calc.mobilites_demarche(t, *(tables[_table(t, s)] for s in SUFFIXES))
+        ],
+    }
+    return donnees, chrono
+
+
 def _lire_tables() -> tuple[dict, list]:
     """Financier Erasmus + 3 tables par démarche, lues en parallèle."""
     a_lire = [(kit.GRIST_DOC_ID, calc.TABLE_FINANCIER)] + [
@@ -61,15 +119,15 @@ def _charger(rafraichir: bool = False) -> dict:
     if not rafraichir and _cache["donnees"] and time.time() - _cache["t"] < CACHE_SECONDES:
         return {**_cache["donnees"], "chargement": {**_cache["donnees"]["chargement"], "memoire": True}}
     debut = time.perf_counter()
-    tables, chrono = _lire_tables()
-    donnees = {
-        "projets": calc.projets(tables[calc.TABLE_FINANCIER]),
-        "mobilites": [
-            m for t in calc.TYPES
-            for m in calc.mobilites_demarche(t, *(tables[_table(t, s)] for s in SUFFIXES))
-        ],
-    }
-    donnees["chargement"] = {"ms": round((time.perf_counter() - debut) * 1000), "tables": chrono, "memoire": False}
+    try:
+        donnees, chrono = _charger_sql()
+        mode, erreur = "sql", None
+    except Exception as exc:  # colonne absente, SQL refusé… : lecture complète
+        logger.warning("Dashboard : SQL impossible (%s), lecture complète des tables", exc)
+        donnees, chrono = _charger_tables()
+        mode, erreur = "tables", str(exc)[:300]
+    donnees["chargement"] = {"ms": round((time.perf_counter() - debut) * 1000), "tables": chrono,
+                             "memoire": False, "mode": mode, "erreur_sql": erreur}
     logger.warning("Dashboard : lecture Grist totale %d ms", donnees["chargement"]["ms"])
     _cache.update(t=time.time(), donnees=donnees)
     return donnees

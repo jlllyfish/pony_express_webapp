@@ -795,8 +795,9 @@
     if (ch && chronoEl) {
       chronoEl.textContent = ch.memoire
         ? `Données en mémoire (lues dans Grist en ${(ch.ms / 1000).toFixed(1).replace(".", ",")} s)`
-        : `Lu dans Grist en ${(ch.ms / 1000).toFixed(1).replace(".", ",")} s (${ch.tables.length} tables)`;
-      chronoEl.title = ch.tables.map((t) => `${t.table} : ${t.ms} ms, ${t.lignes} lignes`).join("\n");
+        : `Lu dans Grist en ${(ch.ms / 1000).toFixed(1).replace(".", ",")} s (${ch.mode === "sql" ? `${ch.tables.length} requêtes ciblées` : `${ch.tables.length} tables complètes`})`;
+      chronoEl.title = ch.tables.map((t) => `${t.table} : ${t.ms} ms, ${t.lignes} lignes`).join("\n") +
+        (ch.erreur_sql ? `\n\nSQL indisponible : ${ch.erreur_sql}` : "");
     }
 
     document.getElementById("dash-kpis").innerHTML =

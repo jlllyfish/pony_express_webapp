@@ -17,6 +17,7 @@ Tester une règle en ligne de commande :
     python -m service.dashboard_calculs
 """
 
+import json
 import os
 import re
 import unicodedata
@@ -68,6 +69,18 @@ COL_PAMO_GROUPE = "nombre_de_pamo"                         # (_champs, groupes)
 ETATS_EXCLUS = {"refuse", "sans_suite"}
 
 
+def colonnes_lues(type_mob: str) -> dict:
+    """Colonnes à lire dans Grist pour une démarche, par table (les autres ne sont pas lues).
+    À compléter si une nouvelle règle utilise une autre colonne."""
+    champs = [COL_ETABLISSEMENT, COL_DATE_DEBUT]
+    annotations = [COL_MONTANT]
+    if type_mob == "groupes":
+        champs += [COL_EFFECTIF_GROUPE, COL_PAMO_GROUPE]
+    if type_mob == "apprenants":
+        annotations += [COL_PAMO_APPRENANT]
+    return {"champs": champs, "annotations": annotations, "dossiers": [COL_ETAT]}
+
+
 # =====================================================================
 # 2. CONVERSIONS : valeurs Grist -> valeurs Python
 # =====================================================================
@@ -99,6 +112,11 @@ def est_renseigne(valeur) -> bool:
     """Faux si la cellule est vide : None, "", espaces, liste de choix vide (["L"] dans l'API Grist)."""
     if valeur is None:
         return False
+    if isinstance(valeur, str) and valeur.strip().startswith("["):
+        try:  # liste de choix renvoyée en texte par une requête SQL : '["L","Handicap"]'
+            valeur = json.loads(valeur)
+        except ValueError:
+            pass
     if isinstance(valeur, list):
         return any(v != "L" and texte(v) for v in valeur)
     return bool(texte(valeur))
@@ -153,6 +171,11 @@ def mobilite(type_mob: str, champ: dict, annot: dict, dossier: dict) -> dict | N
         "participants_pamo": participants_pamo(type_mob, champ, annot),
         "montant": nombre(annot.get(COL_MONTANT)),
     }
+
+
+def mobilites_jointes(type_mob: str, rows: list) -> list[dict]:
+    """Mobilités d'une démarche à partir de lignes déjà jointes (champs + annotations + dossiers)."""
+    return [m for row in rows if (m := mobilite(type_mob, row, row, row))]
 
 
 def mobilites_demarche(type_mob: str, champs: list, annotations: list, dossiers: list) -> list[dict]:
