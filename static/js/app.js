@@ -789,6 +789,15 @@
       dash.type.value ? typeChoisi.textContent.toLowerCase() : "tous types",
     ];
     document.getElementById("dash-sous-titre").textContent = `Mobilités Erasmus+ : ${filtres.join(", ")}`;
+    // Temps de lecture Grist (test de performance)
+    const ch = d.chargement;
+    const chronoEl = document.getElementById("dash-chrono");
+    if (ch && chronoEl) {
+      chronoEl.textContent = ch.memoire
+        ? `Données en mémoire (lues dans Grist en ${(ch.ms / 1000).toFixed(1).replace(".", ",")} s)`
+        : `Lu dans Grist en ${(ch.ms / 1000).toFixed(1).replace(".", ",")} s (${ch.tables.length} tables)`;
+      chronoEl.title = ch.tables.map((t) => `${t.table} : ${t.ms} ms, ${t.lignes} lignes`).join("\n");
+    }
 
     document.getElementById("dash-kpis").innerHTML =
       kpi("mobilites", "Mobilités", t.mobilites, "tous types confondus", "violet") +

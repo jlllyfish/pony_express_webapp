@@ -1347,3 +1347,4 @@ body.vue-dashboard .dashboard {
 .dash-tip tr.total td:nth-child(2){color:#fff}
 .dash-tip .dash-puce{display:inline-block;border-radius:50%;margin-right:8px;vertical-align:-1px}
 .dash-donut[hidden]{display:none}
+.dash-chrono{margin:6px 0 0;font-size:12px;color:#6E6C8C;cursor:help}

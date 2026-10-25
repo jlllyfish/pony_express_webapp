@@ -10,6 +10,7 @@ Forfaits par participant : OS individuel × (apprenants + personnel),
 OS groupe × participants des groupes, PAMO × participants PAMO.
 """
 
+import logging
 import os
 import re
 import time
@@ -52,6 +53,8 @@ COLONNES_FINANCIER = {
     "os_ensfea_groupe": "osensfeagroupe",
 }
 
+logger = logging.getLogger(__name__)
+
 CACHE_SECONDES = 300
 _cache: dict = {"t": 0, "donnees": None}
 
@@ -89,9 +92,19 @@ def _par_dossier(rows: list[dict]) -> dict:
     return {str(r.get("dossier_number")): r for r in rows}
 
 
-def _lire_financier(grist: GristService) -> list[dict]:
+def _lire(grist: GristService, table: str, chrono: list) -> list[dict]:
+    """Lecture d'une table Grist, chronométrée."""
+    debut = time.perf_counter()
+    rows = grist.get_table_records(table)
+    ms = round((time.perf_counter() - debut) * 1000)
+    chrono.append({"table": table, "lignes": len(rows), "ms": ms})
+    logger.warning("Dashboard : %s lue en %d ms (%d lignes)", table, ms, len(rows))
+    return rows
+
+
+def _lire_financier(grist: GristService, chrono: list) -> list[dict]:
     projets = []
-    for row in grist.get_table_records(TABLE_FINANCIER):
+    for row in _lire(grist, TABLE_FINANCIER, chrono):
         par_cle = {_cle(k): v for k, v in row.items()}
         ligne = {nom: par_cle.get(cle) for nom, cle in COLONNES_FINANCIER.items()}
         ligne["projet"] = clean_text(ligne["projet"])
@@ -104,15 +117,15 @@ def _lire_financier(grist: GristService) -> list[dict]:
     return projets
 
 
-def _lire_mobilites(grists: dict) -> list[dict]:
+def _lire_mobilites(grists: dict, chrono: list) -> list[dict]:
     """Une ligne par dossier retenu : type, établissement, année, participants, montant, PAMO."""
     mobilites = []
     for type_mob, dem in DEMARCHES.items():
         grist = grists[dem["doc_id"]]
         prefixe = f"Demarche_{dem['numero']}"
-        champs = _par_dossier(grist.get_table_records(f"{prefixe}_champs"))
-        annotations = _par_dossier(grist.get_table_records(f"{prefixe}_annotations"))
-        dossiers = _par_dossier(grist.get_table_records(f"{prefixe}_dossiers"))
+        champs = _par_dossier(_lire(grist, f"{prefixe}_champs", chrono))
+        annotations = _par_dossier(_lire(grist, f"{prefixe}_annotations", chrono))
+        dossiers = _par_dossier(_lire(grist, f"{prefixe}_dossiers", chrono))
         for numero, champ in champs.items():
             etat = clean_text(dossiers.get(numero, {}).get("state"))
             if etat in ETATS_EXCLUS:
@@ -140,15 +153,23 @@ def _lire_mobilites(grists: dict) -> list[dict]:
 
 def _charger(rafraichir: bool = False) -> dict:
     if not rafraichir and _cache["donnees"] and time.time() - _cache["t"] < CACHE_SECONDES:
-        return _cache["donnees"]
+        return {**_cache["donnees"], "chargement": {**_cache["donnees"]["chargement"], "memoire": True}}
+    debut = time.perf_counter()
+    chrono: list = []
     grists = {
         doc: GristService(doc, kit.GRIST_TEAM_SITE, kit.GRIST_SERVER)
         for doc in {d["doc_id"] for d in DEMARCHES.values()}
     }
     donnees = {
-        "projets": _lire_financier(grists[kit.GRIST_DOC_ID]),
-        "mobilites": _lire_mobilites(grists),
+        "projets": _lire_financier(grists[kit.GRIST_DOC_ID], chrono),
+        "mobilites": _lire_mobilites(grists, chrono),
     }
+    donnees["chargement"] = {
+        "ms": round((time.perf_counter() - debut) * 1000),
+        "tables": chrono,
+        "memoire": False,
+    }
+    logger.warning("Dashboard : lecture Grist totale %d ms", donnees["chargement"]["ms"])
     _cache.update(t=time.time(), donnees=donnees)
     return donnees
 
@@ -201,6 +222,7 @@ def donnees_dashboard(
 
     return {
         "exemple": False,
+        "chargement": donnees["chargement"],
         "filtres": {
             "etablissements": sorted({m["etablissement"] for m in toutes}),
             "codes_projet": [p["projet"] for p in projets],
