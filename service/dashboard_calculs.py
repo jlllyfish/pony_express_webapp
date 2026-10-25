@@ -65,6 +65,7 @@ COL_EFFECTIF_GROUPE = "nombre_d_apprenants_total"          # (_champs, groupes) 
 COL_PAMO_APPRENANT = "critere_participant_s_ayant_moins_d_opportunites"  # (_annotations, apprenants)
 COL_PAMO_GROUPE = "nombre_de_pamo"                         # (_champs, groupes)
 COL_TYPE_PERSONNEL = "type_de_mobilite_de_personnel"       # (_champs, personnel)
+COL_PAYS = "pays_d_accueil_code"                           # (_champs) code ISO à 2 lettres du pays d'accueil
 # Valeur de COL_TYPE_PERSONNEL qui ne donne pas droit au soutien organisationnel
 # (comparaison sans casse ni accents, sur le début du mot : « Accompagnateur·rice » convient)
 TYPE_PERSONNEL_SANS_OS = "accompagnateur"
@@ -76,7 +77,7 @@ ETATS_EXCLUS = {"refuse", "sans_suite"}
 def colonnes_lues(type_mob: str) -> dict:
     """Colonnes à lire dans Grist pour une démarche, par table (les autres ne sont pas lues).
     À compléter si une nouvelle règle utilise une autre colonne."""
-    champs = [COL_ETABLISSEMENT, COL_DATE_DEBUT]
+    champs = [COL_ETABLISSEMENT, COL_DATE_DEBUT, COL_PAYS]
     annotations = [COL_MONTANT]
     if type_mob == "groupes":
         champs += [COL_EFFECTIF_GROUPE, COL_PAMO_GROUPE]
@@ -186,6 +187,7 @@ def mobilite(type_mob: str, champ: dict, annot: dict, dossier: dict) -> dict | N
         "participants_pamo": participants_pamo(type_mob, champ, annot),
         "participants_os": participants_os(type_mob, champ),
         "montant": nombre(annot.get(COL_MONTANT)),
+        "pays": texte(champ.get(COL_PAYS)).upper(),
     }
 
 
@@ -286,6 +288,18 @@ def soutien_organisationnel(mobilites: list, projets_retenus: list) -> dict:
             "participants_indiv": indiv, "participants_groupes": groupes}
 
 
+def par_pays(mobilites: list) -> list[dict]:
+    """Par pays d'accueil (code ISO) : nombre de mobilités par type, du plus grand au plus petit.
+    Une mobilité de groupe compte pour 1 (comme dans les tuiles), quel que soit l'effectif.
+    Pays non renseigné : code vide (affiché « Non renseigné » dans l'interface)."""
+    lignes: dict = {}
+    for m in mobilites:
+        p = lignes.setdefault(m["pays"], {t: 0 for t in TYPES})
+        p[m["type"]] += 1
+    return sorted(({"code": code, **n, "total": sum(n.values())} for code, n in lignes.items()),
+                  key=lambda p: (-p["total"], p["code"]))
+
+
 def par_etablissement(mobilites: list) -> list[dict]:
     """Par établissement : nombre de mobilités par type et montant engagé, du plus grand au plus petit."""
     lignes: dict = {}
@@ -332,6 +346,7 @@ def indicateurs(tous_projets: list, toutes_mobilites: list,
             "participants_groupes": os_["participants_groupes"],
         },
         "par_etablissement": par_etablissement(mob),
+        "par_pays": par_pays(mob),
         "statut": None,  # public / privé : pas encore de source
         "subvention": {
             "accordee": round(subvention_accordee(retenus)),
