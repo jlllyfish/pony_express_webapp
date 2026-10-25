@@ -135,7 +135,7 @@ a {
   z-index: 50;
 }
 .rail-icon-wrap:hover .rail-tooltip,
-.rail-icon-wrap:focus-within .rail-tooltip {
+.rail-icon-wrap:has(:focus-visible) .rail-tooltip {
   opacity: 1;
 }
 
