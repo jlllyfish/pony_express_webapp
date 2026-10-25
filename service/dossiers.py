@@ -10,6 +10,8 @@ from pony_express.service.grist import GristService
 from pony_express.service.utils import clean_text, get_date_from_timestamp
 from pony_express.templates import contrat_pedagogique as kit
 
+from service.grist_lecture import avec_repli, colonnes_jointes
+
 # Colonnes lues dans Demarche_128447_champs pour l'affichage de la carte
 CHAMP_ETABLISSEMENT = "votre_etablissement"
 CHAMP_PAYS = "pays_d_accueil_nom"
@@ -31,17 +33,40 @@ def _date(champ: dict, column: str) -> str:
         return ""
 
 
-def list_dossiers() -> list[dict]:
+# Colonnes lues dans la table des annotations (kit.GRIST_TABLE)
+COLONNES_ANNOTATIONS = [
+    "dossier_number",
+    "nom_participant",
+    "prenom_s_participant",
+    "contrat_pedagogique_envoye_par_l_ensfea",
+    "contrat_financier_envoye_par_l_ensfea",
+]
+COLONNES_CHAMPS = [
+    CHAMP_ETABLISSEMENT, CHAMP_PAYS, CHAMP_DATE_TRAJET_ALLER,
+    CHAMP_DATE_TRAJET_RETOUR, CHAMP_DATE_DEBUT, CHAMP_DATE_FIN,
+]
+
+
+def _lignes_completes() -> list[dict]:
+    """Repli : tables entières, fusionnées par numéro de dossier."""
     grist = _grist()
-    main_rows = grist.get_table_records(kit.GRIST_TABLE)
-    champs_by_dossier = {
-        row.get("dossier_number"): row for row in grist.get_table_records(kit.TABLE_CHAMPS)
-    }
+    champs = {r.get("dossier_number"): r for r in grist.get_table_records(kit.TABLE_CHAMPS)}
+    return [champs.get(r.get("dossier_number"), {}) | r for r in grist.get_table_records(kit.GRIST_TABLE)]
+
+
+def list_dossiers() -> list[dict]:
+    # Une requête SQL ciblée (colonnes ci-dessus) ; tables entières si elle échoue
+    lignes = avec_repli(
+        "Page Apprenants",
+        lambda: colonnes_jointes(kit.GRIST_DOC_ID, kit.GRIST_TABLE, COLONNES_ANNOTATIONS,
+                                 {kit.TABLE_CHAMPS: COLONNES_CHAMPS}),
+        _lignes_completes,
+    )
 
     dossiers = []
-    for row in main_rows:
+    for row in lignes:
         dossier_number = row.get("dossier_number")
-        champ = champs_by_dossier.get(dossier_number, {})
+        champ = row
         nom = clean_text(row.get("nom_participant"))
         prenom = kit.premier_prenom(clean_text(row.get("prenom_s_participant")))
         dossiers.append(
