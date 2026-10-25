@@ -730,6 +730,7 @@
     apprenants: '<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
     personnel: '<path d="M11.5 15H7a4 4 0 0 0-4 4v2"/><path d="M21.4 16.6a1 1 0 0 0-3-3l-4 4a2 2 0 0 0-.5.9l-.8 2.9a.5.5 0 0 0 .6.6l2.9-.8a2 2 0 0 0 .9-.5z"/><circle cx="10" cy="7" r="4"/>',
     groupes: '<path d="M17 21a5 5 0 0 0-10 0"/><path d="M22 10.5a3.5 3.5 0 0 0-5.5-2.9"/><path d="M7.5 7.6A3.5 3.5 0 0 0 2 10.5"/><circle cx="12" cy="13" r="3"/><circle cx="18.5" cy="4.5" r="2.5"/><circle cx="5.5" cy="4.5" r="2.5"/>',
+    experts: '<circle cx="15" cy="7" r="4"/><path d="M13 15h5a4 4 0 0 1 4 4v2"/><path d="M2 14h7"/><path d="m6 11 3 3-3 3"/>',
   };
 
   function kpi(cle, libelle, valeur, detail, teinte) {
@@ -737,7 +738,7 @@
         <div class="dash-kpi-icone dash-kpi-icone--${teinte}">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES_KPI[cle]}</svg>
         </div>
-        <div><div class="dash-kpi-libelle">${libelle}</div><div class="dash-kpi-valeur">${nf(valeur)}</div><div class="dash-kpi-detail">${detail}</div></div>
+        <div><div class="dash-kpi-libelle">${libelle}</div><div class="dash-kpi-valeur">${valeur == null ? "—" : nf(valeur)}</div><div class="dash-kpi-detail">${detail}</div></div>
       </div>`;
   }
 
@@ -821,7 +822,9 @@
       kpi("mobilites", "Mobilités", t.mobilites, "tous types confondus", "violet") +
       kpi("apprenants", "Apprenants", t.apprenants, "mobilités individuelles", "violet") +
       kpi("personnel", "Personnel", t.personnel, "mobilités du personnel", "bleu") +
-      kpi("groupes", "Groupes", t.groupes, `${nf(t.participants_groupes)} participants`, "orange");
+      kpi("groupes", "Groupes", t.groupes, `${nf(t.participants_groupes)} participants`, "violet") +
+      // Experts invités : démarche DN pas encore créée
+      kpi("experts", "Experts invités", t.experts ?? null, t.experts == null ? "démarche à venir" : "mobilités entrantes", "bleu");
 
     // Barres empilées par type (violet / orange / bleu), info-bulle par segment
     const max = Math.max(1, ...d.par_etablissement.map((e) => e.mobilites));
