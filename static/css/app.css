@@ -1386,3 +1386,9 @@ body.vue-bientot .sans-bientot { display: none; }
 .bientot h1 { margin: 0; font-size: 24px; color: var(--violet-fonce, #2A1A6E); }
 .bientot p { margin: 0; max-width: 460px; color: var(--ink-soft); font-size: 15px; }
 body.vue-bientot #btn-refresh { display: none; }
+
+/* Loader du toast : cavalier et cactus (format portrait 324 × 372) */
+.toast .toast-loader {
+  width: 162px;
+  height: 186px;
+}
