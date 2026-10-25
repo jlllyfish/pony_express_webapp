@@ -930,3 +930,41 @@ body {
     border-radius: 0;
   }
 }
+
+/* Toast sans fond : animation au-dessus, texte centré dessous */
+.toast {
+  right: 56px;
+  bottom: 72px;
+  max-width: 260px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  text-align: center;
+}
+.toast-title {
+  font-size: 14px;
+}
+.toast-progress {
+  margin-top: 2px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.toast-close {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 32px;
+  height: 32px;
+  font-size: 22px;
+  border-radius: 50%;
+}
+.toast-close:hover {
+  background: var(--surface);
+}
+.toast--error .toast-title {
+  color: #b91c1c;
+}
