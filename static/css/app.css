@@ -1481,8 +1481,10 @@ body.vue-bientot #btn-refresh { display: none; }
   cursor: pointer;
 }
 .carte-pays--actif:hover {
-  stroke: var(--ink);
-  stroke-width: 1.5;
+  stroke: var(--violet-fonce);
+  stroke-width: 1.2;
+  stroke-opacity: 0.55;
+  filter: drop-shadow(0 2px 4px rgba(84, 36, 214, 0.25));
 }
 .carte-legende {
   display: flex;
