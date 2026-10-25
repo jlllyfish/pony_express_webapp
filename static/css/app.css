@@ -145,7 +145,7 @@ a {
   grid-row: 1 / 3;
   background: var(--surface);
   border-right: 1px solid var(--border);
-  padding: 28px 20px;
+  padding: 28px 16px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -209,6 +209,11 @@ a {
   background: var(--bg);
   font-size: 14px;
   color: var(--ink);
+}
+.field-select {
+  padding: 9px 2px 9px 7px;
+  font-size: 11.5px;
+  text-overflow: ellipsis;
 }
 .field-select:focus-visible,
 .field-input:focus-visible {
@@ -1053,7 +1058,7 @@ body.vue-dashboard .dashboard {
 /* Big numbers */
 .dash-kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 .dash-kpi {
@@ -1100,13 +1105,15 @@ body.vue-dashboard .dashboard {
 }
 
 /* Barres par établissement */
+/* Même grille que les big numbers : Répartition = largeur du bloc Groupes */
 .dash-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
 }
 .dash-etabs {
-  flex: 999 1 420px;
+  grid-column: span 3;
   min-width: 0;
   padding: 20px 22px;
 }
@@ -1183,7 +1190,7 @@ body.vue-dashboard .dashboard {
 
 /* Donuts */
 .dash-repartition {
-  flex: 1 1 280px;
+  min-width: 0;
   padding: 20px 22px;
   display: flex;
   flex-direction: column;
@@ -1191,8 +1198,13 @@ body.vue-dashboard .dashboard {
 }
 .dash-donut {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
-  gap: 18px;
+  gap: 14px 18px;
+}
+.dash-donut .dash-legende li strong {
+  white-space: nowrap;
 }
 .dash-donut--sep {
   border-top: 1px solid var(--border);
@@ -1348,3 +1360,9 @@ body.vue-dashboard .dashboard {
 .dash-tip .dash-puce{display:inline-block;border-radius:50%;margin-right:8px;vertical-align:-1px}
 .dash-donut[hidden]{display:none}
 .dash-chrono{margin:6px 0 0;font-size:12px;color:#6E6C8C;cursor:help}
+
+@media (max-width: 1100px) {
+  .dash-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dash-row { grid-template-columns: 1fr; }
+  .dash-etabs { grid-column: auto; }
+}
