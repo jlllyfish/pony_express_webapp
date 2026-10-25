@@ -64,6 +64,10 @@ COL_MONTANT = "montant_bourse"                             # (_annotations) bour
 COL_EFFECTIF_GROUPE = "nombre_d_apprenants_total"          # (_champs, groupes) participants du groupe
 COL_PAMO_APPRENANT = "critere_participant_s_ayant_moins_d_opportunites"  # (_annotations, apprenants)
 COL_PAMO_GROUPE = "nombre_de_pamo"                         # (_champs, groupes)
+COL_TYPE_PERSONNEL = "type_de_mobilite_de_personnel"       # (_champs, personnel)
+# Valeur de COL_TYPE_PERSONNEL qui ne donne pas droit au soutien organisationnel
+# (comparaison sans casse ni accents, sur le début du mot : « Accompagnateur·rice » convient)
+TYPE_PERSONNEL_SANS_OS = "accompagnateur"
 
 # Dossiers DN non comptés (ni mobilité, ni bourse, ni forfait)
 ETATS_EXCLUS = {"refuse", "sans_suite"}
@@ -78,6 +82,8 @@ def colonnes_lues(type_mob: str) -> dict:
         champs += [COL_EFFECTIF_GROUPE, COL_PAMO_GROUPE]
     if type_mob == "apprenants":
         annotations += [COL_PAMO_APPRENANT]
+    if type_mob == "personnel":
+        champs += [COL_TYPE_PERSONNEL]
     return {"champs": champs, "annotations": annotations, "dossiers": [COL_ETAT]}
 
 
@@ -159,6 +165,15 @@ def participants_pamo(type_mob: str, champ: dict, annot: dict) -> int:
     return 0
 
 
+def participants_os(type_mob: str, champ: dict) -> int:
+    """Participants ouvrant droit au soutien organisationnel (OS) :
+    - personnel accompagnateur (type_de_mobilite_de_personnel) : 0, pas d'OS
+    - sinon : tous les participants de la mobilité (voir participants())"""
+    if type_mob == "personnel" and cle(champ.get(COL_TYPE_PERSONNEL) or "").startswith(cle(TYPE_PERSONNEL_SANS_OS)):
+        return 0
+    return participants(type_mob, champ)
+
+
 def mobilite(type_mob: str, champ: dict, annot: dict, dossier: dict) -> dict | None:
     """Une mobilité à partir des 3 lignes Grist d'un dossier ; None si le dossier n'est pas compté."""
     if not est_compte(dossier):
@@ -169,6 +184,7 @@ def mobilite(type_mob: str, champ: dict, annot: dict, dossier: dict) -> dict | N
         "annee": annee(champ.get(COL_DATE_DEBUT)),
         "participants": participants(type_mob, champ),
         "participants_pamo": participants_pamo(type_mob, champ, annot),
+        "participants_os": participants_os(type_mob, champ),
         "montant": nombre(annot.get(COL_MONTANT)),
     }
 
@@ -242,8 +258,8 @@ def montant_engage(mobilites: list) -> float:
     return sum(m["montant"] for m in mobilites)
 
 
-def nb_participants(mobilites: list, types: tuple) -> int:
-    return sum(m["participants"] for m in mobilites if m["type"] in types)
+def nb_participants(mobilites: list, types: tuple, cle_participants: str = "participants") -> int:
+    return sum(m[cle_participants] for m in mobilites if m["type"] in types)
 
 
 def montant_pamo(mobilites: list, projets_retenus: list) -> dict:
@@ -260,9 +276,10 @@ def soutien_organisationnel(mobilites: list, projets_retenus: list) -> dict:
         OS ENSFEA        = OS_Ensfea_indiv × participants individuels
                          + OS_Ensfea_groupe × participants des groupes
         OS total         = OS établissement + OS ENSFEA
-    Participants individuels = apprenants + personnel (1 par dossier)."""
-    indiv = nb_participants(mobilites, ("apprenants", "personnel"))
-    groupes = nb_participants(mobilites, ("groupes",))
+    Participants individuels = apprenants + personnel (1 par dossier), SAUF le personnel
+    accompagnateur, qui ne donne pas d'OS (voir participants_os())."""
+    indiv = nb_participants(mobilites, ("apprenants", "personnel"), "participants_os")
+    groupes = nb_participants(mobilites, ("groupes",), "participants_os")
     etab = forfait(projets_retenus, "os_etab_indiv") * indiv + forfait(projets_retenus, "os_etab_groupe") * groupes
     ensfea = forfait(projets_retenus, "os_ensfea_indiv") * indiv + forfait(projets_retenus, "os_ensfea_groupe") * groupes
     return {"etablissement": etab, "ensfea": ensfea, "total": etab + ensfea,
@@ -349,10 +366,16 @@ if __name__ == "__main__":
                              [{"dossier_number": 9, COL_ETABLISSEMENT: "Lycée B",
                                COL_EFFECTIF_GROUPE: 12, COL_PAMO_GROUPE: 3}],
                              [{"dossier_number": 9, COL_MONTANT: 10_000}], [])
+        + mobilites_demarche("personnel",
+                             [{"dossier_number": 20, COL_ETABLISSEMENT: "Lycée A",
+                               COL_TYPE_PERSONNEL: "Accompagnateur"},
+                              {"dossier_number": 21, COL_ETABLISSEMENT: "Lycée B",
+                               COL_TYPE_PERSONNEL: "Formation"}], [], [])
     )
     s = indicateurs(financier, mob)["subvention"]
     assert s["engagee"] == round(2000 + 1500.5 + 10_000)              # dossier 3 refusé
     assert s["pamo"] == 125 * (1 + 3)                                  # 1 apprenant + 3 en groupe
-    assert s["os_etablissement"] == 133 * 2 + 66 * 12
-    assert s["os_ensfea"] == 217 * 2 + 34 * 12
+    # OS individuel : 2 apprenants + 1 personnel (l'accompagnateur ne compte pas)
+    assert s["os_etablissement"] == 133 * 3 + 66 * 12
+    assert s["os_ensfea"] == 217 * 3 + 34 * 12
     print("Règles vérifiées :", s)
