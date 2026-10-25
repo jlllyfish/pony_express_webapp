@@ -8,6 +8,7 @@ from flask import Flask, jsonify, render_template, request, send_file
 
 from service.dn import DOCUMENTS, envoyer_document, synchroniser_statuts_pj_avec_dn
 from service.dossiers import list_dossiers, list_etablissements
+from service.dashboard import donnees_dashboard
 from service.groupes import list_groupes
 from service.sante import etat_de_sante
 from service.generation import TEMPLATES, generate_document, generate_pieces
@@ -46,6 +47,23 @@ def api_dossiers():
 def api_sante():
     """État de santé de Grist et de DN (lecture seule)."""
     return jsonify(etat_de_sante())
+
+
+@app.get("/api/dashboard")
+def api_dashboard():
+    """Indicateurs du consortium, lus dans Grist (cache de 5 min, ?refresh=1 pour relire)."""
+    try:
+        return jsonify(
+            donnees_dashboard(
+                etablissement=request.args.get("etablissement", ""),
+                code_projet=request.args.get("code_projet", ""),
+                annee=request.args.get("annee", ""),
+                type_mobilite=request.args.get("type", ""),
+                rafraichir=request.args.get("refresh") == "1",
+            )
+        )
+    except Exception as exc:  # Grist injoignable, table ou colonne absente
+        return jsonify({"error": str(exc)}), 502
 
 
 @app.get("/api/groupes")

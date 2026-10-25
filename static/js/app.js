@@ -26,6 +26,13 @@
       titre: "Mobilités de groupe",
       recherche: "Centre constitutif",
     },
+    dashboard: {
+      api: null,
+      documents: { pedagogique: "pedagogique", financier: "financier" },
+      libellePedagogique: "Kit péda + attestation",
+      titre: "Tableau de bord",
+      recherche: "",
+    }
   };
   const DOCUMENTS = {
     pedagogique: {
@@ -444,6 +451,7 @@
   }
 
   async function loadDossiers(refresh) {
+    if (vue === "dashboard") return loadDashboard(refresh);
     const vueChargee = vue;
     const api = VUES[vue].api;
     const url = refresh ? `${api}?refresh=1` : api;
@@ -676,10 +684,254 @@
   );
 
   // Navigation entre les pages par le rail (#apprenants, #groupes)
+  // --- Tableau de bord du consortium ---
+
+  const COULEURS_TYPES = { apprenants: "#6C38F5", groupes: "#D9772F", personnel: "#1E4FD8" };
+  const nf = (n) => Number(n || 0).toLocaleString("fr-FR");
+  const euros = (n) => `${nf(Math.round(n || 0))} €`;
+  const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+  const dash = {
+    projet: document.getElementById("filter-projet"),
+    annee: document.getElementById("filter-annee-dash"),
+    type: document.getElementById("filter-type-dash"),
+  };
+  const TYPES_DASH = [
+    ["apprenants", "Apprenants"],
+    ["groupes", "Groupes"],
+    ["personnel", "Personnel"],
+  ];
+
+  function remplirSelect(sel, libelleTous, valeurs) {
+    const courant = sel.value;
+    sel.innerHTML = `<option value="">${libelleTous}</option>` +
+      valeurs.map((v) => `<option value="${v}">${v}</option>`).join("");
+    sel.value = valeurs.includes(courant) ? courant : "";
+  }
+
+  const ICONES_KPI = {
+    mobilites: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+    apprenants: '<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
+    personnel: '<path d="M11.5 15H7a4 4 0 0 0-4 4v2"/><path d="M21.4 16.6a1 1 0 0 0-3-3l-4 4a2 2 0 0 0-.5.9l-.8 2.9a.5.5 0 0 0 .6.6l2.9-.8a2 2 0 0 0 .9-.5z"/><circle cx="10" cy="7" r="4"/>',
+    groupes: '<path d="M17 21a5 5 0 0 0-10 0"/><path d="M22 10.5a3.5 3.5 0 0 0-5.5-2.9"/><path d="M7.5 7.6A3.5 3.5 0 0 0 2 10.5"/><circle cx="12" cy="13" r="3"/><circle cx="18.5" cy="4.5" r="2.5"/><circle cx="5.5" cy="4.5" r="2.5"/>',
+  };
+
+  function kpi(cle, libelle, valeur, detail, teinte) {
+    return `<div class="dash-card dash-kpi">
+        <div class="dash-kpi-icone dash-kpi-icone--${teinte}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES_KPI[cle]}</svg>
+        </div>
+        <div><div class="dash-kpi-libelle">${libelle}</div><div class="dash-kpi-valeur">${nf(valeur)}</div><div class="dash-kpi-detail">${detail}</div></div>
+      </div>`;
+  }
+
+  // Infobulles façon Metabase : fond foncé, pastille, valeur, %, total
+  let infobulles = [];
+  function infobulle(titre, lignes, active) {
+    infobulles.push({ titre, lignes, active });
+    return `data-tip="${infobulles.length - 1}"`;
+  }
+  const tipEl = document.createElement("div");
+  tipEl.className = "dash-tip";
+  tipEl.hidden = true;
+  document.body.appendChild(tipEl);
+  function afficherInfobulle(ev) {
+    const cible = ev.target.closest("[data-tip]");
+    const tip = cible && infobulles[cible.dataset.tip];
+    if (!tip) { tipEl.hidden = true; return; }
+    const total = tip.lignes.reduce((t, l) => t + l.valeur, 0);
+    tipEl.innerHTML = `<div class="dash-tip-titre">${tip.titre}</div><table>${
+      tip.lignes.map((l, i) => `<tr class="${i === tip.active ? "actif" : ""}">
+        <td><span class="dash-puce" style="background:${l.couleur}"></span>${l.libelle}</td>
+        <td>${nf(l.valeur)}</td><td>${pct(l.valeur, total)} %</td></tr>`).join("")
+    }<tr class="total"><td>Total</td><td>${nf(total)}</td><td>100 %</td></tr></table>`;
+    tipEl.hidden = false;
+    const m = 14, w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+    let x = ev.clientX + m, y = ev.clientY + m;
+    if (x + w > innerWidth - 8) x = ev.clientX - w - m;
+    if (y + h > innerHeight - 8) y = ev.clientY - h - m;
+    tipEl.style.left = `${x}px`;
+    tipEl.style.top = `${y}px`;
+  }
+  document.getElementById("view-dashboard").addEventListener("mousemove", afficherInfobulle);
+  document.getElementById("view-dashboard").addEventListener("mouseleave", () => { tipEl.hidden = true; });
+
+  // Donut SVG : segments [{libelle, valeur, couleur}] séparés de 2 px
+  function donut(segments, centre, sousCentre, aria) {
+    const total = segments.reduce((t, s) => t + s.valeur, 0) || 1;
+    const r = 54;
+    const c = 2 * Math.PI * r;
+    let debut = 0;
+    const lignes = segments.map(({ libelle, valeur, couleur }) => ({ libelle, valeur, couleur }));
+    const arcs = segments.map((s, i) => {
+      const longueur = (s.valeur / total) * c;
+      const arc = `<circle class="dash-seg" cx="64" cy="64" r="${r}" stroke="${s.couleur}" stroke-dasharray="${Math.max(0, longueur - 2).toFixed(2)} ${c.toFixed(2)}" stroke-dashoffset="${(-debut).toFixed(2)}" ${infobulle(aria, lignes, i)}></circle>`;
+      debut += longueur;
+      return arc;
+    }).join("");
+    const legende = segments.map((s) =>
+      `<li><span class="dash-puce" style="background:${s.couleur}"></span>${s.libelle}<strong>${s.legende ?? `${pct(s.valeur, total)} %`}</strong></li>`).join("");
+    return `<svg width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="${aria}">
+        <g transform="rotate(-90 64 64)" fill="none" stroke-width="16">${arcs}</g>
+        <text x="64" y="62" text-anchor="middle" class="dash-donut-centre">${centre}</text>
+        <text x="64" y="80" text-anchor="middle" class="dash-donut-sous">${sousCentre}</text>
+      </svg><ul class="dash-legende">${legende}</ul>`;
+  }
+
+  function renderDashboard(d) {
+    const t = d.totaux;
+    infobulles = [];
+    document.getElementById("dash-exemple").hidden = !d.exemple;
+    const typeChoisi = dash.type.options[dash.type.selectedIndex];
+    const filtres = [
+      el.filterEtab.value || "tous établissements",
+      dash.projet.value || "tous projets",
+      dash.annee.value || "toutes années",
+      dash.type.value ? typeChoisi.textContent.toLowerCase() : "tous types",
+    ];
+    document.getElementById("dash-sous-titre").textContent = `Mobilités Erasmus+ : ${filtres.join(", ")}`;
+    // Temps de lecture Grist (test de performance)
+    const ch = d.chargement;
+    const chronoEl = document.getElementById("dash-chrono");
+    if (ch && chronoEl) {
+      chronoEl.textContent = ch.memoire
+        ? `Données en mémoire (lues dans Grist en ${(ch.ms / 1000).toFixed(1).replace(".", ",")} s)`
+        : `Lu dans Grist en ${(ch.ms / 1000).toFixed(1).replace(".", ",")} s (${ch.mode === "sql" ? `${ch.tables.length} requêtes ciblées` : `${ch.tables.length} tables complètes`})`;
+      chronoEl.title = ch.tables.map((t) => `${t.table} : ${t.ms} ms, ${t.lignes} lignes`).join("\n") +
+        (ch.erreur_sql ? `\n\nSQL indisponible : ${ch.erreur_sql}` : "");
+    }
+
+    document.getElementById("dash-kpis").innerHTML =
+      kpi("mobilites", "Mobilités", t.mobilites, "tous types confondus", "violet") +
+      kpi("apprenants", "Apprenants", t.apprenants, "mobilités individuelles", "violet") +
+      kpi("personnel", "Personnel", t.personnel, "mobilités du personnel", "bleu") +
+      kpi("groupes", "Groupes", t.groupes, `${nf(t.participants_groupes)} participants`, "orange");
+
+    // Barres empilées par type (violet / orange / bleu), info-bulle par segment
+    const max = Math.max(1, ...d.par_etablissement.map((e) => e.mobilites));
+    const typesVisibles = TYPES_DASH.filter(([cle]) => !dash.type.value || dash.type.value === cle);
+    document.getElementById("dash-etabs-legende").innerHTML = typesVisibles
+      .map(([cle, lib]) => `<li><span class="dash-puce" style="background:${COULEURS_TYPES[cle]}"></span>${lib}</li>`)
+      .join("");
+    document.getElementById("dash-etabs").innerHTML = d.par_etablissement.length
+      ? d.par_etablissement.map((e) => {
+          const lignes = typesVisibles.map(([cle, lib]) => ({ libelle: lib, valeur: e[cle], couleur: COULEURS_TYPES[cle] }));
+          const segments = typesVisibles
+            .map(([cle], i) => e[cle] > 0
+              ? `<span class="dash-barre-seg" style="flex:${e[cle]} 1 0;background:${COULEURS_TYPES[cle]}" ${infobulle(e.nom, lignes, i)}></span>`
+              : "")
+            .join("");
+          return `
+        <div class="dash-barre">
+          <span class="dash-barre-nom" title="${e.nom}">${e.nom}</span>
+          <div class="dash-barre-piste"><div class="dash-barre-val" style="width:${(e.mobilites / max) * 100}%">${segments}</div></div>
+          <span class="dash-barre-nb" ${infobulle(e.nom, lignes, -1)}>${nf(e.mobilites)}</span>
+          <span class="dash-barre-montant">${euros(e.montant_engage)}</span>
+        </div>`;
+        }).join("")
+      : '<p class="empty-state">Aucune mobilité pour ces filtres.</p>';
+
+    document.getElementById("dash-donut-type").innerHTML = donut(
+      [
+        { libelle: "Apprenants", valeur: t.apprenants, couleur: COULEURS_TYPES.apprenants },
+        { libelle: "Groupes", valeur: t.groupes, couleur: COULEURS_TYPES.groupes },
+        { libelle: "Personnel", valeur: t.personnel, couleur: COULEURS_TYPES.personnel },
+      ],
+      nf(t.mobilites), "mobilités", "Mobilités par type");
+    const st = d.statut;
+    const blocStatut = document.getElementById("dash-donut-statut");
+    blocStatut.hidden = !st;
+    if (st) blocStatut.innerHTML = donut(
+      [
+        { libelle: "Public", valeur: st.public, couleur: COULEURS_TYPES.apprenants, legende: nf(st.public) },
+        { libelle: "Privé", valeur: st.prive, couleur: COULEURS_TYPES.groupes, legende: nf(st.prive) },
+      ],
+      `${pct(st.public, st.public + st.prive)} %`, "public", "Établissements publics et privés");
+
+    const sub = d.subvention;
+    const taux = pct(sub.engagee, sub.accordee);
+    const r = 70;
+    const c = 2 * Math.PI * r;
+    document.getElementById("dash-anneau").innerHTML = `
+      <svg width="190" height="190" viewBox="0 0 190 190" role="img" aria-label="Subvention consommée : ${taux} %">
+        <circle cx="95" cy="95" r="${r}" fill="none" stroke="#f1eeff" stroke-width="18"></circle>
+        <circle cx="95" cy="95" r="${r}" fill="none" stroke="#6c38f5" stroke-width="18" stroke-linecap="round"
+          stroke-dasharray="${((Math.min(taux, 100) / 100) * c).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 95 95)"></circle>
+        <text x="95" y="96" text-anchor="middle" class="dash-anneau-val">${taux} %</text>
+        <text x="95" y="118" text-anchor="middle" class="dash-donut-sous">de la subvention</text>
+      </svg>`;
+    const ligne = (libelle, montant, part, couleur) => `
+      <div class="dash-card dash-montant">
+        <div class="dash-montant-tete"><span>${libelle}</span>${part != null ? `<strong style="color:${couleur}">${part} %</strong>` : ""}</div>
+        <div class="dash-montant-val">${euros(montant)}</div>
+        ${part != null ? `<div class="dash-piste"><div style="width:${Math.min(part, 100)}%;background:${couleur}"></div></div>` : ""}
+      </div>`;
+    const ligneDetail = (libelle, montant, detail) => `
+      <div class="dash-card dash-montant">
+        <div class="dash-montant-tete"><span>${libelle}</span></div>
+        <div class="dash-montant-val">${euros(montant)}</div>
+        <div class="dash-montant-detail">${detail}</div>
+      </div>`;
+    document.getElementById("dash-montants").innerHTML =
+      ligne("Subvention accordée", sub.accordee) +
+      ligne("Montant engagé", sub.engagee, taux, "#6c38f5") +
+      (sub.versee != null ? ligne("Montant versé", sub.versee, pct(sub.versee, sub.accordee), "#1e4fd8") : "") +
+      ligne("Reste à engager", Math.max(0, sub.accordee - sub.engagee)) +
+      `<h3 class="dash-sous-titre">Autres montants</h3>` +
+      ligneDetail("Montant PAMO", sub.pamo, sub.pamo_participants == null
+        ? `forfait ${euros(sub.pamo_forfait)} par participant (participants PAMO à brancher)`
+        : `${euros(sub.pamo_forfait)} × ${nf(sub.pamo_participants)} participants`) +
+      `<h3 class="dash-sous-titre">Soutien organisationnel</h3>` +
+      ligneDetail("OS établissement", sub.os_etablissement, "part des établissements") +
+      ligneDetail("OS ENSFEA", sub.os_ensfea, "part de l'ENSFEA") +
+      ligneDetail("OS total", sub.os_etablissement + sub.os_ensfea,
+        `${nf(sub.participants_indiv)} participants individuels, ${nf(sub.participants_groupes)} en groupe`);
+  }
+
+  async function loadDashboard(refresh) {
+    const params = new URLSearchParams({
+      ...(refresh ? { refresh: "1" } : {}),
+      etablissement: el.filterEtab.value,
+      code_projet: dash.projet.value,
+      annee: dash.annee.value,
+      type: dash.type.value,
+    });
+    try {
+      const res = await fetch(`/api/dashboard?${params}`);
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+      if (vue !== "dashboard") return;
+      remplirSelect(el.filterEtab, "Tous les établissements", d.filtres.etablissements);
+      remplirSelect(dash.projet, "Tous les projets", d.filtres.codes_projet);
+      // Premier affichage : code projet par défaut (l'utilisateur peut choisir « Tous »)
+      if (!dash.projetInitialise && d.filtres.code_projet_defaut) {
+        dash.projetInitialise = true;
+        if (d.filtres.codes_projet.includes(d.filtres.code_projet_defaut)) {
+          dash.projet.value = d.filtres.code_projet_defaut;
+          return loadDashboard();
+        }
+      }
+      remplirSelect(dash.annee, "Toutes les années", d.filtres.annees);
+      const typeCourant = dash.type.value;
+      dash.type.innerHTML = '<option value="">Tous les types</option>' +
+        d.filtres.types.map((t) => `<option value="${t.valeur}">${t.libelle}</option>`).join("");
+      dash.type.value = typeCourant;
+      renderDashboard(d);
+    } catch (err) {
+      showInfoModal("Tableau de bord", [`Chargement impossible : ${err.message}`], "error");
+    }
+  }
+
+  [el.filterEtab, dash.projet, dash.annee, dash.type].forEach((sel) =>
+    sel.addEventListener("change", () => {
+      if (vue === "dashboard") loadDashboard();
+    }),
+  );
+
   function setVue() {
     const h = location.hash.slice(1);
     vue = VUES[h] ? h : "apprenants";
     document.body.classList.toggle("vue-groupes", vue === "groupes");
+    document.body.classList.toggle("vue-dashboard", vue === "dashboard");
     // Le sélecteur garde son choix (péda / financier) d'une page à l'autre
     const actif = document.querySelector('[data-filter="document"].is-active');
     setDocument(VUES[vue].documents[(actif && actif.dataset.value) || "pedagogique"]);
@@ -699,6 +951,10 @@
     el.search.value = "";
     el.filterEtab.value = "";
     allDossiers = [];
+    if (vue === "dashboard") {
+      loadDashboard();
+      return;
+    }
     el.cards.innerHTML = '<p class="empty-state">Chargement des dossiers…</p>';
     loadDossiers(false);
   }

@@ -17,6 +17,8 @@ import requests
 from pony_express.service.grist import GristService
 from pony_express.templates import contrat_pedagogique as kit
 
+from service.grist_lecture import avec_repli, colonnes_jointes, ligne_du_dossier
+
 API_URL = os.environ.get(
     "DN_API_URL", "https://demarche.numerique.gouv.fr/api/v2/graphql"
 )
@@ -149,14 +151,22 @@ def _get_dossier_and_annotation_ids(dossier_number, demarche: str = "apprenants"
     dem = DEMARCHES[demarche]
     grist = _grist(demarche)
 
-    dossiers = grist.get_table_records(dem["table_dossiers"])
+    def lignes(table):
+        # seulement la ligne du dossier ; table entière si le filtre échoue
+        return avec_repli(
+            f"Envoi DN {dossier_number}",
+            lambda: ligne_du_dossier(dem["doc_id"], table, dossier_number),
+            lambda: grist.get_table_records(table),
+        )
+
+    dossiers = lignes(dem["table_dossiers"])
     dossier_row = next(
         (r for r in dossiers if r.get("dossier_number") == str(dossier_number)), None
     )
     if not dossier_row:
         raise ValueError(f"Dossier {dossier_number} introuvable dans {dem['table_dossiers']}")
 
-    annotations = grist.get_table_records(dem["table_annotations"])
+    annotations = lignes(dem["table_annotations"])
     annotation_row = next(
         (r for r in annotations if r.get("dossier_number") == str(dossier_number)), None
     )
@@ -330,7 +340,13 @@ def synchroniser_statuts_pj_avec_dn(demarche: str = "apprenants") -> dict:
     table = DEMARCHES[demarche]["table_annotations"]
     statuts_dn = fetch_statuts_pj_dn(demarche)
     grist = _grist(demarche)
-    lignes = grist.get_table_records(table)
+    # seulement l'id, le numéro de dossier et les colonnes de statut ; table entière si échec
+    colonnes = ["id", "dossier_number"] + sorted({c["colonne_grist"] for c in documents.values()})
+    lignes = avec_repli(
+        f"Synchro DN {demarche}",
+        lambda: colonnes_jointes(DEMARCHES[demarche]["doc_id"], table, colonnes),
+        lambda: grist.get_table_records(table),
+    )
 
     corriges = {document: [] for document in documents}
     updates = {}

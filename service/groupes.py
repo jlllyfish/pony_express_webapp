@@ -10,6 +10,8 @@ from pony_express.service.grist import GristService
 from pony_express.service.utils import clean_text, get_date_from_timestamp
 from pony_express.templates import contrat_pedagogique as kit
 
+from service.grist_lecture import avec_repli, colonnes_jointes
+
 DEMARCHE_GROUPE = 156967
 TABLE_CHAMPS = f"Demarche_{DEMARCHE_GROUPE}_champs"
 TABLE_ANNOTATIONS = f"Demarche_{DEMARCHE_GROUPE}_annotations"
@@ -42,17 +44,49 @@ def _par_dossier(rows: list[dict]) -> dict:
     return {str(r.get("dossier_number")): r for r in rows}
 
 
-def list_groupes() -> list[dict]:
+# Colonnes lues (les autres colonnes des tables ne sont pas téléchargées)
+COLONNES_CHAMPS = [
+    "dossier_number",
+    "centre_constitutif_du_participant",
+    "votre_etablissement",
+    "pays_d_accueil_nom",
+    "date_debut_activite_hors_jours_de_voyage",
+    "date_fin_activite_hors_jours_de_voyage",
+    "date_de_trajet_aller",
+    "date_de_trajet_retour",
+    "nombre_d_apprenants_total",
+    "combien_d_accompagnateurs_sont_prevus",
+]
+COLONNES_ANNOTATIONS = ["contrat_pedagogique_envoye_par_l_ensfea", "contrat_financier_envoye_par_l_ensfea"]
+COLONNES_DOSSIERS = ["state"]
+
+
+def _lignes_completes() -> list[dict]:
+    """Repli : tables entières, fusionnées par numéro de dossier."""
     grist = _grist()
-    champs = grist.get_table_records(TABLE_CHAMPS)
     annotations = _par_dossier(grist.get_table_records(TABLE_ANNOTATIONS))
     dossiers = _par_dossier(grist.get_table_records(TABLE_DOSSIERS))
+    lignes = []
+    for row in grist.get_table_records(TABLE_CHAMPS):
+        numero = str(row.get("dossier_number"))
+        annot = {c: annotations.get(numero, {}).get(c) for c in COLONNES_ANNOTATIONS}
+        lignes.append(row | annot | {"state": dossiers.get(numero, {}).get("state")})
+    return lignes
+
+
+def list_groupes() -> list[dict]:
+    # Une requête SQL ciblée (colonnes ci-dessus) ; tables entières si elle échoue
+    lignes = avec_repli(
+        "Page Groupes",
+        lambda: colonnes_jointes(GRIST_DOC_ID, TABLE_CHAMPS, COLONNES_CHAMPS,
+                                 {TABLE_ANNOTATIONS: COLONNES_ANNOTATIONS, TABLE_DOSSIERS: COLONNES_DOSSIERS}),
+        _lignes_completes,
+    )
 
     groupes = []
-    for row in champs:
+    for row in lignes:
         numero = str(row.get("dossier_number"))
-        annot = annotations.get(numero, {})
-        dossier = dossiers.get(numero, {})
+        annot = dossier = row
         groupes.append(
             {
                 "dossier_number": numero,
