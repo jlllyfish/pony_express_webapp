@@ -817,7 +817,7 @@ body.vue-groupes .apprenants-only {
 .sante {
   display: flex;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 18px;
 }
 .sante-item {
   display: inline-flex;
