@@ -9,6 +9,7 @@ from flask import Flask, jsonify, render_template, request, send_file
 from service.dn import DOCUMENTS, envoyer_document, synchroniser_statuts_pj_avec_dn
 from service.dossiers import list_dossiers, list_etablissements
 from service.groupes import list_groupes
+from service.sante import etat_de_sante
 from service.generation import TEMPLATES, generate_document, generate_pieces
 
 app = Flask(__name__)
@@ -39,6 +40,12 @@ def api_dossiers():
             "etablissements": list_etablissements(dossiers),
         }
     )
+
+
+@app.get("/api/sante")
+def api_sante():
+    """État de santé de Grist et de DN (lecture seule)."""
+    return jsonify(etat_de_sante())
 
 
 @app.get("/api/groupes")
