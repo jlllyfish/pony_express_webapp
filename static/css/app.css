@@ -812,3 +812,57 @@ body.vue-groupes .apprenants-only {
 .card-effectifs {
   margin-top: 12px;
 }
+
+/* --- État de santé Grist / DN --- */
+.sante {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+.sante-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.sante-item:hover {
+  color: var(--ink);
+}
+.sante-item:focus-visible {
+  outline: 2px solid var(--accent-start);
+  outline-offset: 2px;
+}
+.sante-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #a8a6b0;
+}
+.sante-item[data-etat="ok"] .sante-dot {
+  background: #16a34a;
+}
+.sante-item[data-etat="ko"] {
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.35);
+}
+.sante-item[data-etat="ko"] .sante-dot {
+  background: #dc2626;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sante-item[data-etat="test"] .sante-dot {
+    animation: sante-pulse 1s ease-in-out infinite;
+  }
+}
+@keyframes sante-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}

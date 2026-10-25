@@ -91,6 +91,46 @@
 
   let toastTimeout = null;
 
+  // --- État de santé de Grist et DN ---
+  // true tant que le test n'a pas échoué (on ne bloque pas pendant le test)
+  const sante = { grist: true, dn: true };
+  const SANTE_NOMS = { grist: "Grist", dn: "Démarches Numériques" };
+
+  async function verifierSante(silencieux) {
+    ["grist", "dn"].forEach((k) => {
+      const b = document.getElementById(`sante-${k}`);
+      b.dataset.etat = "test";
+      b.title = "Test de connexion en cours…";
+    });
+    let data;
+    try {
+      const res = await fetch("/api/sante");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      data = await res.json();
+    } catch (err) {
+      data = {
+        heure: "",
+        grist: { ok: false, message: `Serveur de l'application injoignable (${err.message})` },
+        dn: { ok: false, message: "Non testé : serveur de l'application injoignable" },
+      };
+    }
+    const echecs = [];
+    ["grist", "dn"].forEach((k) => {
+      const r = data[k];
+      sante[k] = r.ok;
+      const b = document.getElementById(`sante-${k}`);
+      b.dataset.etat = r.ok ? "ok" : "ko";
+      b.title = `${SANTE_NOMS[k]} ${r.ok ? "OK" : "en échec"}${r.ms != null ? ` · ${r.ms} ms` : ""}${data.heure ? ` · ${data.heure}` : ""}\n${r.message}\n(cliquer pour retester)`;
+      if (!r.ok) echecs.push(`<strong>${SANTE_NOMS[k]}</strong> — ${r.message}`);
+    });
+    updateSelectionUI();
+    if (echecs.length && !silencieux) {
+      showInfoModal("Connexion en échec", echecs.concat([
+        "Les actions qui dépendent de ce service sont désactivées. Clique sur la pastille pour retester.",
+      ]), "error");
+    }
+  }
+
   function showToastProgress(label, current, total) {
     clearTimeout(toastTimeout);
     el.toast.hidden = false;
@@ -379,8 +419,10 @@
 
   function updateSelectionUI() {
     el.selCount.textContent = `(${selected.size})`;
-    el.btnGenerate.disabled = selected.size === 0;
-    el.btnSend.disabled = selected.size === 0;
+    // Boutons grisés si le service nécessaire est en échec
+    el.btnGenerate.disabled = selected.size === 0 || !sante.grist;
+    el.btnSend.disabled = selected.size === 0 || !sante.grist || !sante.dn;
+    el.btnSyncDn.disabled = !sante.dn || !sante.grist;
 
     const visibleIds = allDossiers
       .filter(matches)
@@ -597,14 +639,22 @@
       showToastResult("Échec de la vérification", 0, 1, 1);
       showInfoModal("Erreur", [`Vérification : ${err.message}`], "error");
     } finally {
-      el.btnSyncDn.disabled = false;
+      el.btnSyncDn.disabled = !sante.dn || !sante.grist;
     }
   }
 
   el.filterEtab.addEventListener("change", render);
   el.search.addEventListener("input", render);
   el.btnGenerate.addEventListener("click", generateSelection);
-  el.btnRefresh.addEventListener("click", () => loadDossiers(true));
+  el.btnRefresh.addEventListener("click", () => {
+    loadDossiers(true);
+    verifierSante(false);
+  });
+  ["grist", "dn"].forEach((k) =>
+    document
+      .getElementById(`sante-${k}`)
+      .addEventListener("click", () => verifierSante(false)),
+  );
   el.btnSyncDn.addEventListener("click", syncWithDn);
   el.btnSend.addEventListener("click", sendSelection);
   el.toastClose.addEventListener("click", hideToast);
@@ -655,4 +705,5 @@
   window.addEventListener("hashchange", setVue);
 
   setVue();
+  verifierSante(false);
 })();
