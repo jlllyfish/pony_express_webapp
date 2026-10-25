@@ -916,6 +916,55 @@
         `${nf(sub.participants_indiv)} participants individuels, ${nf(sub.participants_groupes)} en groupe`);
   }
 
+  // --- Carte des pays d'accueil --------------------------------------------------
+  // Fond de carte Europe pré-projeté (scripts/carte/generer.mjs), chargé une seule fois
+  let fondCarte = null;
+  const PALETTE_CARTE = ["#ECE8FD", "#C9BCFB", "#A386F8", "#7E54F6", "#5424D6"];
+  const GRIS_CARTE = "#E6E4EF";
+
+  async function chargerFondCarte() {
+    if (!fondCarte) fondCarte = await (await fetch("/static/data/carte-europe.json")).json();
+    return fondCarte;
+  }
+
+  function nomPays(code) {
+    if (!code) return "Non renseigné";
+    return (fondCarte && fondCarte.noms[code]) || code;
+  }
+
+  async function renderCarte(parPays) {
+    const fond = await chargerFondCarte();
+    const index = Object.fromEntries(parPays.map((p) => [p.code, p]));
+    const max = Math.max(1, ...parPays.map((p) => p.total));
+    // 5 classes de même largeur entre 1 et le maximum
+    const couleur = (n) => (n > 0 ? PALETTE_CARTE[Math.min(4, Math.floor((n / max) * 5 - 1e-9))] : GRIS_CARTE);
+    const lignesPays = (p) => TYPES_DASH.map(([cle, lib]) => ({ libelle: lib, valeur: p[cle], couleur: COULEURS_TYPES[cle] }));
+
+    const surCarte = new Set();
+    const paths = fond.pays.map((f) => {
+      const p = index[f.iso2];
+      if (p) surCarte.add(f.iso2);
+      const tip = p ? infobulle(f.nom, lignesPays(p), -1) : "";
+      return `<path class="carte-pays${p ? " carte-pays--actif" : ""}" d="${f.d}" fill="${couleur(p ? p.total : 0)}" ${tip}></path>`;
+    }).join("");
+    document.getElementById("dash-carte").innerHTML =
+      `<svg viewBox="0 0 ${fond.largeur} ${fond.hauteur}" role="img" aria-label="Carte des mobilités par pays d'accueil">${paths}</svg>`;
+    document.getElementById("dash-carte-legende").innerHTML =
+      `<span>1</span>${PALETTE_CARTE.map((c) => `<i style="background:${c}"></i>`).join("")}<span>${nf(max)} mobilités</span>` +
+      `<i class="carte-legende-aucune" style="background:${GRIS_CARTE}"></i><span>aucune</span>`;
+
+    const ligneListe = (p, barre) => `<li ${infobulle(nomPays(p.code), lignesPays(p), -1)}><span>${nomPays(p.code)}</span><strong>${nf(p.total)}</strong>` +
+      (barre ? `<div class="carte-barre"><span style="width:${(p.total / max) * 100}%"></span></div>` : "") + "</li>";
+    // le classement ignore les pays non renseignés (listés sous « Hors de la carte »)
+    const classes = parPays.filter((p) => p.code);
+    document.getElementById("dash-carte-top").innerHTML = classes.length
+      ? classes.slice(0, 5).map((p) => ligneListe(p, true)).join("")
+      : '<li class="carte-vide">Aucune mobilité</li>';
+    const hors = parPays.filter((p) => !surCarte.has(p.code));
+    document.getElementById("dash-carte-hors-bloc").hidden = !hors.length;
+    document.getElementById("dash-carte-hors").innerHTML = hors.map((p) => ligneListe(p, false)).join("");
+  }
+
   async function loadDashboard(refresh) {
     const params = new URLSearchParams({
       ...(refresh ? { refresh: "1" } : {}),
@@ -945,6 +994,7 @@
         d.filtres.types.map((t) => `<option value="${t.valeur}">${t.libelle}</option>`).join("");
       dash.type.value = typeCourant;
       renderDashboard(d);
+      renderCarte(d.par_pays || []);
     } catch (err) {
       showInfoModal("Tableau de bord", [`Chargement impossible : ${err.message}`], "error");
     }

@@ -1458,3 +1458,89 @@ body.vue-bientot #btn-refresh { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .toast-accueil { animation: none; }
 }
+
+/* Carte des pays d'accueil (Dashboard) */
+.dash-carte {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 22px;
+  padding: 20px 22px;
+}
+.dash-carte svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: var(--bg);
+  border-radius: 14px;
+}
+.carte-pays {
+  stroke: #fff;
+  stroke-width: 0.7;
+}
+.carte-pays--actif {
+  cursor: pointer;
+}
+.carte-pays--actif:hover {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+.carte-legende {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.carte-legende i {
+  display: inline-block;
+  width: 26px;
+  height: 10px;
+  border-radius: 2px;
+}
+.carte-legende .carte-legende-aucune {
+  margin-left: 14px;
+}
+.carte-cote h3 {
+  margin: 16px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.carte-cote h3:first-child {
+  margin-top: 6px;
+}
+.carte-top {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+.carte-top li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  cursor: default;
+}
+.carte-barre {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--violet-pale, #f1eeff);
+}
+.carte-barre span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--violet);
+}
+.carte-vide {
+  color: var(--ink-soft);
+}
+@media (max-width: 1100px) {
+  .dash-carte { grid-template-columns: 1fr; }
+}
