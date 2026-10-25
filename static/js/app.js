@@ -832,7 +832,10 @@
       ligne("Reste à engager", Math.max(0, sub.accordee - sub.engagee)) +
       `<h3 class="dash-sous-titre">Autres montants</h3>` +
       ligneDetail("Montant PAMO", sub.pamo, "inclusion des participants avec moins d'opportunités") +
-      ligneDetail("Soutien organisationnel", sub.soutien_organisationnel, "frais de gestion de la mobilité");
+      `<h3 class="dash-sous-titre">Soutien organisationnel</h3>` +
+      ligneDetail("OS établissement", sub.os_etablissement, "part des établissements") +
+      ligneDetail("OS ENSFEA", sub.os_ensfea, "part de l'ENSFEA") +
+      ligneDetail("OS total", sub.os_etablissement + sub.os_ensfea, "établissements + ENSFEA");
   }
 
   async function loadDashboard() {

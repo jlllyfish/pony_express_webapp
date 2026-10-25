@@ -84,6 +84,8 @@ def donnees_dashboard(
             "versee": round(612_000 * part),
             # soutien à l'inclusion des participants avec moins d'opportunités
             "pamo": round(48_600 * part),
-            "soutien_organisationnel": round(141_400 * part),
+            # soutien organisationnel : part établissements + part ENSFEA
+            "os_etablissement": round(113_100 * part),
+            "os_ensfea": round(28_300 * part),
         },
     }
