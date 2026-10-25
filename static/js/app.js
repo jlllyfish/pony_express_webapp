@@ -819,11 +819,20 @@
         <div class="dash-montant-val">${euros(montant)}</div>
         ${part != null ? `<div class="dash-piste"><div style="width:${Math.min(part, 100)}%;background:${couleur}"></div></div>` : ""}
       </div>`;
+    const ligneDetail = (libelle, montant, detail) => `
+      <div class="dash-card dash-montant">
+        <div class="dash-montant-tete"><span>${libelle}</span></div>
+        <div class="dash-montant-val">${euros(montant)}</div>
+        <div class="dash-montant-detail">${detail}</div>
+      </div>`;
     document.getElementById("dash-montants").innerHTML =
       ligne("Subvention accordée", sub.accordee) +
       ligne("Montant engagé", sub.engagee, taux, "#6c38f5") +
       ligne("Montant versé", sub.versee, pct(sub.versee, sub.accordee), "#1e4fd8") +
-      ligne("Reste à engager", Math.max(0, sub.accordee - sub.engagee));
+      ligne("Reste à engager", Math.max(0, sub.accordee - sub.engagee)) +
+      `<h3 class="dash-sous-titre">Autres montants</h3>` +
+      ligneDetail("Montant PAMO", sub.pamo, "inclusion des participants avec moins d'opportunités") +
+      ligneDetail("Soutien organisationnel", sub.soutien_organisationnel, "frais de gestion de la mobilité");
   }
 
   async function loadDashboard() {

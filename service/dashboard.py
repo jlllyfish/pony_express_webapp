@@ -78,5 +78,8 @@ def donnees_dashboard(
             "accordee": round(1_250_000 * (part if etablissement or type_mobilite else 1)),
             "engagee": engage,
             "versee": round(612_000 * part),
+            # soutien à l'inclusion des participants avec moins d'opportunités
+            "pamo": round(48_600 * part),
+            "soutien_organisationnel": round(141_400 * part),
         },
     }

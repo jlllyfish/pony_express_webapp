@@ -1320,3 +1320,15 @@ body.vue-dashboard .dashboard {
     max-width: none;
   }
 }
+
+.dash-sous-titre {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.dash-montant-detail {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
