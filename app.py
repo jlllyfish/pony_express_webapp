@@ -8,6 +8,7 @@ from flask import Flask, jsonify, render_template, request, send_file
 
 from service.dn import DOCUMENTS, envoyer_document, synchroniser_statuts_pj_avec_dn
 from service.dossiers import list_dossiers, list_etablissements
+from service.dashboard import donnees_dashboard
 from service.groupes import list_groupes
 from service.sante import etat_de_sante
 from service.generation import TEMPLATES, generate_document, generate_pieces
@@ -46,6 +47,18 @@ def api_dossiers():
 def api_sante():
     """État de santé de Grist et de DN (lecture seule)."""
     return jsonify(etat_de_sante())
+
+
+@app.get("/api/dashboard")
+def api_dashboard():
+    """Indicateurs du consortium (données d'exemple tant que Grist n'est pas branché)."""
+    return jsonify(
+        donnees_dashboard(
+            etablissement=request.args.get("etablissement", ""),
+            code_projet=request.args.get("code_projet", ""),
+            annee=request.args.get("annee", ""),
+        )
+    )
 
 
 @app.get("/api/groupes")

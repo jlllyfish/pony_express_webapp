@@ -79,6 +79,18 @@
       </div>
 
       <div class="rail-icon-wrap">
+        <a class="rail-icon" href="#dashboard" data-view="dashboard" aria-label="Dashboard">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="7" height="9" x="3" y="3" rx="1" />
+            <rect width="7" height="5" x="14" y="3" rx="1" />
+            <rect width="7" height="9" x="14" y="12" rx="1" />
+            <rect width="7" height="5" x="3" y="16" rx="1" />
+          </svg>
+        </a>
+        <span class="rail-tooltip">Dashboard</span>
+      </div>
+
+      <div class="rail-icon-wrap">
         <a class="rail-icon" href="#">
           <svg
             width="20"
@@ -117,6 +129,18 @@
         <option value="">Tous les établissements</option>
       </select>
 
+      <div class="dashboard-only">
+        <label class="field-label" for="filter-projet">Code projet</label>
+        <select id="filter-projet" class="field-select">
+          <option value="">Tous les projets</option>
+        </select>
+        <label class="field-label" for="filter-annee-dash">Année</label>
+        <select id="filter-annee-dash" class="field-select">
+          <option value="">Toutes les années</option>
+        </select>
+      </div>
+
+<div class="tuiles-only">
       <label class="field-label" for="search-nom">Recherche</label>
       <input
         id="search-nom"
@@ -189,6 +213,7 @@
           À envoyer
         </button>
       </div>
+      </div>
 
       <div class="sante" aria-live="polite">
         <button id="sante-grist" class="sante-item" type="button" data-etat="test"
@@ -204,10 +229,11 @@
       <button id="btn-refresh" class="field-refresh" type="button">
         ↻ Rafraîchir depuis Grist
       </button>
-      <button id="btn-sync-dn" class="field-refresh" type="button">
+      <button id="btn-sync-dn" class="field-refresh tuiles-only" type="button">
         ⇄ Vérifier avec DN
       </button>
 
+<div class="tuiles-only">
       <p class="filters-count">
         <span id="count-visible">0</span> /
         <span id="count-total">0</span> dossiers
@@ -278,6 +304,7 @@
           >
         </button>
       </div>
+      </div>
 
       <div class="filters-brand">
         <img
@@ -290,13 +317,49 @@
     </aside>
 
     <main class="content">
-      <header class="content-header">
+      <header class="content-header tuiles-only">
         <h1 id="page-title">Mobilités Apprenant</h1>
       </header>
 
-      <div id="cards" class="card-grid" aria-live="polite">
+      <div id="cards" class="card-grid tuiles-only" aria-live="polite">
         <p class="empty-state">Chargement des dossiers…</p>
       </div>
+
+      <section id="view-dashboard" class="dashboard dashboard-only" aria-labelledby="dash-titre">
+        <div class="dash-main">
+          <section class="dash-hero">
+            <div>
+              <h1 id="dash-titre">Tableau de bord du consortium</h1>
+              <p id="dash-sous-titre">Mobilités Erasmus+</p>
+              <span id="dash-exemple" class="dash-badge" hidden>Données d'exemple</span>
+            </div>
+            <img src="{{ url_for('static', filename='img/logo-moow.svg') }}" alt="Moow by ENSFEA" class="dash-hero-logo" />
+          </section>
+
+          <div id="dash-kpis" class="dash-kpis"></div>
+
+          <div class="dash-row">
+            <section class="dash-card dash-etabs">
+              <div class="dash-card-head">
+                <h2>Mobilités par établissement</h2>
+                <span>montant engagé</span>
+              </div>
+              <div id="dash-etabs"></div>
+            </section>
+            <section class="dash-card dash-repartition">
+              <h2>Répartition</h2>
+              <div id="dash-donut-type" class="dash-donut"></div>
+              <div id="dash-donut-statut" class="dash-donut dash-donut--sep"></div>
+            </section>
+          </div>
+        </div>
+
+        <aside class="dash-side">
+          <h2>Subvention consommée</h2>
+          <div id="dash-anneau" class="dash-anneau"></div>
+          <div id="dash-montants" class="dash-montants"></div>
+        </aside>
+      </section>
     </main>
 
     <footer class="app-footer">
