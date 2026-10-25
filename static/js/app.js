@@ -849,6 +849,14 @@
       if (vue !== "dashboard") return;
       remplirSelect(el.filterEtab, "Tous les établissements", d.filtres.etablissements);
       remplirSelect(dash.projet, "Tous les projets", d.filtres.codes_projet);
+      // Premier affichage : code projet par défaut (l'utilisateur peut choisir « Tous »)
+      if (!dash.projetInitialise && d.filtres.code_projet_defaut) {
+        dash.projetInitialise = true;
+        if (d.filtres.codes_projet.includes(d.filtres.code_projet_defaut)) {
+          dash.projet.value = d.filtres.code_projet_defaut;
+          return loadDashboard();
+        }
+      }
       remplirSelect(dash.annee, "Toutes les années", d.filtres.annees);
       const typeCourant = dash.type.value;
       dash.type.innerHTML = '<option value="">Tous les types</option>' +

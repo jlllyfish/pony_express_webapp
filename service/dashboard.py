@@ -20,6 +20,9 @@ EXEMPLE_ETABLISSEMENTS = [
 
 TYPES = ("apprenants", "personnel", "groupes")
 
+# Code projet sélectionné par défaut à l'ouverture du tableau de bord
+CODE_PROJET_DEFAUT = "2026-1-FR01-KA121-VET-000435983"
+
 
 def donnees_dashboard(
     etablissement: str = "", code_projet: str = "", annee: str = "", type_mobilite: str = ""
@@ -44,7 +47,8 @@ def donnees_dashboard(
         "exemple": True,
         "filtres": {
             "etablissements": [l[0] for l in EXEMPLE_ETABLISSEMENTS],
-            "codes_projet": ["2026-1-FR01-KA121-VET-000123456"],
+            "codes_projet": [CODE_PROJET_DEFAUT],
+            "code_projet_defaut": CODE_PROJET_DEFAUT,
             "annees": ["2026", "2025"],
             "types": [
                 {"valeur": "apprenants", "libelle": "Apprenants"},
