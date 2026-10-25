@@ -693,7 +693,13 @@
   const dash = {
     projet: document.getElementById("filter-projet"),
     annee: document.getElementById("filter-annee-dash"),
+    type: document.getElementById("filter-type-dash"),
   };
+  const TYPES_DASH = [
+    ["apprenants", "Apprenants"],
+    ["groupes", "Groupes"],
+    ["personnel", "Personnel"],
+  ];
 
   function remplirSelect(sel, libelleTous, valeurs) {
     const courant = sel.value;
@@ -742,7 +748,13 @@
   function renderDashboard(d) {
     const t = d.totaux;
     document.getElementById("dash-exemple").hidden = !d.exemple;
-    const filtres = [el.filterEtab.value || "tous établissements", dash.projet.value || "tous projets", dash.annee.value || "toutes années"];
+    const typeChoisi = dash.type.options[dash.type.selectedIndex];
+    const filtres = [
+      el.filterEtab.value || "tous établissements",
+      dash.projet.value || "tous projets",
+      dash.annee.value || "toutes années",
+      dash.type.value ? typeChoisi.textContent.toLowerCase() : "tous types",
+    ];
     document.getElementById("dash-sous-titre").textContent = `Mobilités Erasmus+ : ${filtres.join(", ")}`;
 
     document.getElementById("dash-kpis").innerHTML =
@@ -751,15 +763,27 @@
       kpi("personnel", "Personnel", t.personnel, "mobilités du personnel", "bleu") +
       kpi("groupes", "Groupes", t.groupes, `${nf(t.participants_groupes)} participants`, "orange");
 
+    // Barres empilées par type (violet / orange / bleu), info-bulle par segment
     const max = Math.max(1, ...d.par_etablissement.map((e) => e.mobilites));
+    const typesVisibles = TYPES_DASH.filter(([cle]) => !dash.type.value || dash.type.value === cle);
+    document.getElementById("dash-etabs-legende").innerHTML = typesVisibles
+      .map(([cle, lib]) => `<li><span class="dash-puce" style="background:${COULEURS_TYPES[cle]}"></span>${lib}</li>`)
+      .join("");
     document.getElementById("dash-etabs").innerHTML = d.par_etablissement.length
-      ? d.par_etablissement.map((e) => `
-        <div class="dash-barre" title="${e.nom} : ${nf(e.mobilites)} mobilités, ${euros(e.montant_engage)} engagés">
-          <span class="dash-barre-nom">${e.nom}</span>
-          <div class="dash-barre-piste"><div class="dash-barre-val" style="width:${(e.mobilites / max) * 100}%"></div></div>
-          <span class="dash-barre-nb">${nf(e.mobilites)}</span>
+      ? d.par_etablissement.map((e) => {
+          const segments = typesVisibles
+            .filter(([cle]) => e[cle] > 0)
+            .map(([cle, lib]) => `<span class="dash-barre-seg" style="flex:${e[cle]} 1 0;background:${COULEURS_TYPES[cle]}" title="${e.nom} : ${lib} ${nf(e[cle])}"></span>`)
+            .join("");
+          const detail = typesVisibles.map(([cle, lib]) => `${lib} ${nf(e[cle])}`).join(", ");
+          return `
+        <div class="dash-barre">
+          <span class="dash-barre-nom" title="${e.nom}">${e.nom}</span>
+          <div class="dash-barre-piste"><div class="dash-barre-val" style="width:${(e.mobilites / max) * 100}%">${segments}</div></div>
+          <span class="dash-barre-nb" title="${detail}">${nf(e.mobilites)}</span>
           <span class="dash-barre-montant">${euros(e.montant_engage)}</span>
-        </div>`).join("")
+        </div>`;
+        }).join("")
       : '<p class="empty-state">Aucune mobilité pour ces filtres.</p>';
 
     document.getElementById("dash-donut-type").innerHTML = donut(
@@ -807,6 +831,7 @@
       etablissement: el.filterEtab.value,
       code_projet: dash.projet.value,
       annee: dash.annee.value,
+      type: dash.type.value,
     });
     try {
       const res = await fetch(`/api/dashboard?${params}`);
@@ -816,13 +841,17 @@
       remplirSelect(el.filterEtab, "Tous les établissements", d.filtres.etablissements);
       remplirSelect(dash.projet, "Tous les projets", d.filtres.codes_projet);
       remplirSelect(dash.annee, "Toutes les années", d.filtres.annees);
+      const typeCourant = dash.type.value;
+      dash.type.innerHTML = '<option value="">Tous les types</option>' +
+        d.filtres.types.map((t) => `<option value="${t.valeur}">${t.libelle}</option>`).join("");
+      dash.type.value = typeCourant;
       renderDashboard(d);
     } catch (err) {
       showInfoModal("Tableau de bord", [`Chargement impossible : ${err.message}`], "error");
     }
   }
 
-  [el.filterEtab, dash.projet, dash.annee].forEach((sel) =>
+  [el.filterEtab, dash.projet, dash.annee, dash.type].forEach((sel) =>
     sel.addEventListener("change", () => {
       if (vue === "dashboard") loadDashboard();
     }),

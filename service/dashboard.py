@@ -18,36 +18,64 @@ EXEMPLE_ETABLISSEMENTS = [
 ]
 
 
-def donnees_dashboard(etablissement: str = "", code_projet: str = "", annee: str = "") -> dict:
-    lignes = [l for l in EXEMPLE_ETABLISSEMENTS if not etablissement or l[0] == etablissement]
-    apprenants = sum(l[2] for l in lignes)
-    personnel = sum(l[3] for l in lignes)
-    groupes = sum(l[4] for l in lignes)
-    engage = sum(l[5] for l in lignes)
-    part = engage / 937_500 if lignes else 0
+TYPES = ("apprenants", "personnel", "groupes")
+
+
+def donnees_dashboard(
+    etablissement: str = "", code_projet: str = "", annee: str = "", type_mobilite: str = ""
+) -> dict:
+    types = (type_mobilite,) if type_mobilite in TYPES else TYPES
+    lignes = []
+    for nom, statut, app, pers, grp, montant in EXEMPLE_ETABLISSEMENTS:
+        if etablissement and nom != etablissement:
+            continue
+        nb = {"apprenants": app, "personnel": pers, "groupes": grp}
+        retenu = {t: (nb[t] if t in types else 0) for t in TYPES}
+        total = app + pers + grp
+        part = sum(retenu.values()) / total if total else 0
+        lignes.append({"nom": nom, "statut": statut, **retenu, "montant": montant * part})
+
+    def somme(cle):
+        return sum(l[cle] for l in lignes)
+
+    engage = round(somme("montant"))
+    part = engage / 937_500
     return {
         "exemple": True,
         "filtres": {
             "etablissements": [l[0] for l in EXEMPLE_ETABLISSEMENTS],
             "codes_projet": ["2026-1-FR01-KA121-VET-000123456"],
             "annees": ["2026", "2025"],
+            "types": [
+                {"valeur": "apprenants", "libelle": "Apprenants"},
+                {"valeur": "personnel", "libelle": "Personnel"},
+                {"valeur": "groupes", "libelle": "Groupes"},
+            ],
         },
         "totaux": {
-            "mobilites": apprenants + personnel + groupes,
-            "apprenants": apprenants,
-            "personnel": personnel,
-            "groupes": groupes,
-            "participants_groupes": round(612 * part),
+            "mobilites": somme("apprenants") + somme("personnel") + somme("groupes"),
+            "apprenants": somme("apprenants"),
+            "personnel": somme("personnel"),
+            "groupes": somme("groupes"),
+            "participants_groupes": round(612 * somme("groupes") / 46),
         },
         "par_etablissement": [
-            {"nom": l[0], "mobilites": l[2] + l[3] + l[4], "montant_engage": l[5]} for l in lignes
+            {
+                "nom": l["nom"],
+                "mobilites": l["apprenants"] + l["personnel"] + l["groupes"],
+                "apprenants": l["apprenants"],
+                "personnel": l["personnel"],
+                "groupes": l["groupes"],
+                "montant_engage": round(l["montant"]),
+            }
+            for l in lignes
         ],
         "statut": {
-            "public": sum(l[2] + l[3] + l[4] for l in lignes if l[1] == "public"),
-            "prive": sum(l[2] + l[3] + l[4] for l in lignes if l[1] == "prive"),
+            "public": sum(l["apprenants"] + l["personnel"] + l["groupes"] for l in lignes if l["statut"] == "public"),
+            "prive": sum(l["apprenants"] + l["personnel"] + l["groupes"] for l in lignes if l["statut"] == "prive"),
         },
         "subvention": {
-            "accordee": round(1_250_000 * part),
+            "accordee": round(1_250_000 * (part if etablissement or type_mobilite else 1)),
             "engagee": engage,
             "versee": round(612_000 * part),
         },

@@ -57,6 +57,7 @@ def api_dashboard():
             etablissement=request.args.get("etablissement", ""),
             code_projet=request.args.get("code_projet", ""),
             annee=request.args.get("annee", ""),
+            type_mobilite=request.args.get("type", ""),
         )
     )
 
