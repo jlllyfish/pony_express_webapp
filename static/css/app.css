@@ -1346,3 +1346,4 @@ body.vue-dashboard .dashboard {
 .dash-tip tr.total td{border-top:1px solid rgba(255,255,255,.18);padding-top:8px;color:#DCDAF0}
 .dash-tip tr.total td:nth-child(2){color:#fff}
 .dash-tip .dash-puce{display:inline-block;border-radius:50%;margin-right:8px;vertical-align:-1px}
+.dash-donut[hidden]{display:none}

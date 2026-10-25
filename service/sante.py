@@ -13,7 +13,7 @@ import requests
 from pony_express.service.grist import GristService
 from pony_express.templates import contrat_pedagogique as kit
 
-from service import dn
+from service import dashboard, dn
 from service.generation import TEMPLATES
 
 TIMEOUT = 15  # secondes
@@ -35,6 +35,12 @@ def _tables_attendues() -> dict:
         )
     # table champs des groupes (page Groupe)
     attendues.setdefault(dn.DEMARCHES["groupes"]["doc_id"], set()).add("Demarche_156967_champs")
+    # tableau de bord : financier + tables des trois démarches
+    attendues.setdefault(kit.GRIST_DOC_ID, set()).add(dashboard.TABLE_FINANCIER)
+    for dem in dashboard.DEMARCHES.values():
+        attendues.setdefault(dem["doc_id"], set()).update(
+            f"Demarche_{dem['numero']}_{suffixe}" for suffixe in ("champs", "annotations", "dossiers")
+        )
     return attendues
 
 

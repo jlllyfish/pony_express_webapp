@@ -51,15 +51,19 @@ def api_sante():
 
 @app.get("/api/dashboard")
 def api_dashboard():
-    """Indicateurs du consortium (données d'exemple tant que Grist n'est pas branché)."""
-    return jsonify(
-        donnees_dashboard(
-            etablissement=request.args.get("etablissement", ""),
-            code_projet=request.args.get("code_projet", ""),
-            annee=request.args.get("annee", ""),
-            type_mobilite=request.args.get("type", ""),
+    """Indicateurs du consortium, lus dans Grist (cache de 5 min, ?refresh=1 pour relire)."""
+    try:
+        return jsonify(
+            donnees_dashboard(
+                etablissement=request.args.get("etablissement", ""),
+                code_projet=request.args.get("code_projet", ""),
+                annee=request.args.get("annee", ""),
+                type_mobilite=request.args.get("type", ""),
+                rafraichir=request.args.get("refresh") == "1",
+            )
         )
-    )
+    except Exception as exc:  # Grist injoignable, table ou colonne absente
+        return jsonify({"error": str(exc)}), 502
 
 
 @app.get("/api/groupes")

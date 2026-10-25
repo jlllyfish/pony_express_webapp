@@ -451,7 +451,7 @@
   }
 
   async function loadDossiers(refresh) {
-    if (vue === "dashboard") return loadDashboard();
+    if (vue === "dashboard") return loadDashboard(refresh);
     const vueChargee = vue;
     const api = VUES[vue].api;
     const url = refresh ? `${api}?refresh=1` : api;
@@ -828,7 +828,9 @@
       ],
       nf(t.mobilites), "mobilités", "Mobilités par type");
     const st = d.statut;
-    document.getElementById("dash-donut-statut").innerHTML = donut(
+    const blocStatut = document.getElementById("dash-donut-statut");
+    blocStatut.hidden = !st;
+    if (st) blocStatut.innerHTML = donut(
       [
         { libelle: "Public", valeur: st.public, couleur: COULEURS_TYPES.apprenants, legende: nf(st.public) },
         { libelle: "Privé", valeur: st.prive, couleur: COULEURS_TYPES.groupes, legende: nf(st.prive) },
@@ -862,18 +864,22 @@
     document.getElementById("dash-montants").innerHTML =
       ligne("Subvention accordée", sub.accordee) +
       ligne("Montant engagé", sub.engagee, taux, "#6c38f5") +
-      ligne("Montant versé", sub.versee, pct(sub.versee, sub.accordee), "#1e4fd8") +
+      (sub.versee != null ? ligne("Montant versé", sub.versee, pct(sub.versee, sub.accordee), "#1e4fd8") : "") +
       ligne("Reste à engager", Math.max(0, sub.accordee - sub.engagee)) +
       `<h3 class="dash-sous-titre">Autres montants</h3>` +
-      ligneDetail("Montant PAMO", sub.pamo, "inclusion des participants avec moins d'opportunités") +
+      ligneDetail("Montant PAMO", sub.pamo, sub.pamo_participants == null
+        ? `forfait ${euros(sub.pamo_forfait)} par participant (participants PAMO à brancher)`
+        : `${euros(sub.pamo_forfait)} × ${nf(sub.pamo_participants)} participants`) +
       `<h3 class="dash-sous-titre">Soutien organisationnel</h3>` +
       ligneDetail("OS établissement", sub.os_etablissement, "part des établissements") +
       ligneDetail("OS ENSFEA", sub.os_ensfea, "part de l'ENSFEA") +
-      ligneDetail("OS total", sub.os_etablissement + sub.os_ensfea, "établissements + ENSFEA");
+      ligneDetail("OS total", sub.os_etablissement + sub.os_ensfea,
+        `${nf(sub.participants_indiv)} participants individuels, ${nf(sub.participants_groupes)} en groupe`);
   }
 
-  async function loadDashboard() {
+  async function loadDashboard(refresh) {
     const params = new URLSearchParams({
+      ...(refresh ? { refresh: "1" } : {}),
       etablissement: el.filterEtab.value,
       code_projet: dash.projet.value,
       annee: dash.annee.value,
