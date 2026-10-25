@@ -35,13 +35,20 @@
 }
 
 :root {
-  --bg: #f3f4f6;
+  /* Palette Pony Express */
+  --violet: #6c38f5;
+  --violet-fonce: #5424d6;
+  --violet-pale: #f1eeff;
+  --bleu: #1e4fd8; /* coches, avatar complet, connexion OK */
+  --peche: #ffa766;
+  --lavande: #dcd8f8;
+  --bg: #f6f5fd;
   --surface: #ffffff;
-  --ink: #17151f;
-  --ink-soft: #6b6875;
-  --border: #e7e3ee;
-  --accent-start: #17151f;
-  --accent-end: #e7e3ee;
+  --ink: #1e1d33;
+  --ink-soft: #6e6c8c;
+  --border: #ece9f8;
+  --accent-start: #6c38f5;
+  --accent-end: #ffa766;
   --gradient: linear-gradient(90deg, var(--accent-start), var(--accent-end));
   --radius-lg: 20px;
   --radius-full: 999px;
@@ -99,8 +106,8 @@ a {
   height: 20px;
 }
 .rail-icon--active {
-  background: #e7e3ee;
-  color: var(--accent-start);
+  background: var(--violet-pale);
+  color: var(--violet);
 }
 .rail-icon:focus-visible {
   outline: 2px solid var(--accent-start);
@@ -227,7 +234,7 @@ a {
 }
 .field-refresh:hover:not(:disabled) {
   color: var(--accent-start);
-  border-color: rgba(109, 40, 217, 0.3);
+  border-color: #c9b9fc;
 }
 .field-refresh:disabled {
   opacity: 0.6;
@@ -336,8 +343,8 @@ a {
   display: none;
 }
 .toast-loader {
-  width: 120px;
-  height: 120px;
+  width: 200px;
+  height: 74px;
   flex-shrink: 0;
   object-fit: contain;
 }
@@ -425,8 +432,8 @@ a {
   height: 44px;
   border-radius: 50%;
   background: #fff;
-  border: 1px solid #000;
-  color: #000;
+  border: 1.5px solid var(--ink);
+  color: var(--ink);
   font-weight: 700;
   font-size: 14px;
   display: flex;
@@ -479,7 +486,7 @@ a {
   white-space: nowrap;
   padding: 4px 10px;
   border-radius: var(--radius-full);
-  background: #17151f;
+  background: var(--violet);
   color: #fff;
   font-size: 11px;
   font-weight: 700;
@@ -564,7 +571,7 @@ a {
   flex-shrink: 0;
 }
 .check-icon.is-done {
-  color: #16a34a;
+  color: var(--bleu);
 }
 
 .segmented {
@@ -589,7 +596,7 @@ a {
   cursor: pointer;
 }
 .segmented-option.is-active {
-  background: var(--ink);
+  background: var(--violet);
   color: #fff;
 }
 .segmented-option:focus-visible {
@@ -673,8 +680,9 @@ a {
   height: 16px;
 }
 .pill-dark {
-  background: var(--ink);
+  background: var(--violet);
   color: #fff;
+  box-shadow: 0 8px 18px rgba(108, 56, 245, 0.28);
 }
 .pill-dark:disabled,
 .pill-disabled {
@@ -682,7 +690,7 @@ a {
   cursor: not-allowed;
 }
 .pill-dark:not(:disabled):hover {
-  background: #000;
+  background: var(--violet-fonce);
 }
 .pill:focus-visible {
   outline: 2px solid var(--accent-start);
@@ -779,8 +787,8 @@ a {
 
 /* Les deux contrats envoyés : avatar plein, même vert que les coches */
 .card-avatar.is-complet {
-  background: #16a34a;
-  border-color: #16a34a;
+  background: var(--bleu);
+  border-color: var(--bleu);
   color: #fff;
 }
 
@@ -847,7 +855,7 @@ body.vue-groupes .apprenants-only {
   background: #a8a6b0;
 }
 .sante-item[data-etat="ok"] .sante-dot {
-  background: #16a34a;
+  background: var(--bleu);
 }
 .sante-item[data-etat="ko"] {
   color: #b91c1c;
@@ -864,5 +872,61 @@ body.vue-groupes .apprenants-only {
 @keyframes sante-pulse {
   50% {
     opacity: 0.3;
+  }
+}
+
+/* =====================================================================
+   Palette Pony Express : cadre de l'app et survol des tuiles
+   ===================================================================== */
+body {
+  background: var(--lavande);
+  padding: 24px;
+  box-sizing: border-box;
+}
+.rail {
+  border-radius: 28px 0 0 28px;
+}
+.content {
+  background: var(--bg);
+  border-top-right-radius: 28px;
+}
+.app-footer {
+  border-bottom-right-radius: 28px;
+}
+.pill-dark:disabled {
+  box-shadow: none;
+}
+
+/* Survol d'une tuile : elle monte, bord et ombre violets */
+.card {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+.card:hover {
+  transform: translateY(-4px);
+  border-color: #c9b9fc;
+  box-shadow:
+    0 2px 4px rgba(108, 56, 245, 0.08),
+    0 16px 36px rgba(108, 56, 245, 0.18);
+}
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+  .card:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 820px) {
+  body {
+    padding: 0;
+  }
+  .rail,
+  .content,
+  .app-footer {
+    border-radius: 0;
   }
 }
