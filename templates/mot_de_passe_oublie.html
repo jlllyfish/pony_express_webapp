@@ -1,0 +1,11 @@
+{% extends "auth_base.html" %}
+{% block titre %}Mot de passe oublié{% endblock %}
+{% block formulaire %}
+  <p class="consigne">Indiquez votre adresse : vous recevrez un lien pour choisir un nouveau mot de passe.</p>
+  <label class="champ">
+    <span class="sr-only">Adresse e-mail</span>
+    <input type="email" name="email" placeholder="Adresse e-mail" autocomplete="username" required autofocus />
+  </label>
+  <button type="submit">Envoyer le lien</button>
+  <a class="lien" href="{{ url_for('auth.connexion') }}">Retour à la connexion</a>
+{% endblock %}

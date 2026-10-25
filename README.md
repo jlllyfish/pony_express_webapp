@@ -41,6 +41,27 @@ PonyExpress pour la colonne PJ côté Grist).
 
    ou directement `poetry run python app.py`.
 
+## Comptes utilisateurs
+
+L'application exige une connexion. Pas d'inscription libre : les comptes se créent en ligne de commande.
+
+```bash
+poetry run flask --app app utilisateurs ajouter prenom.nom@exemple.fr   # demande le mot de passe (12 caractères min.)
+poetry run flask --app app utilisateurs lister
+poetry run flask --app app utilisateurs desactiver prenom.nom@exemple.fr
+poetry run flask --app app utilisateurs activer prenom.nom@exemple.fr
+poetry run flask --app app utilisateurs supprimer prenom.nom@exemple.fr
+```
+
+Sur Scalingo : `scalingo --app <app> run flask --app app utilisateurs ajouter prenom.nom@exemple.fr`.
+
+- Comptes stockés dans PostgreSQL (`DATABASE_URL`, fournie par l'addon Scalingo), SQLite en local.
+- Mots de passe chiffrés (scrypt), jamais stockés en clair.
+- « Mot de passe oublié » : lien valable 1 h et utilisable une seule fois, envoyé par e-mail
+  (variables `SMTP_*`) ; sans `SMTP_HOST`, le lien est écrit dans les logs.
+- 5 essais ratés en 15 min bloquent l'adresse et l'IP pendant 15 min.
+- `SECRET_KEY` obligatoire en production (sinon les sessions sont perdues à chaque redémarrage).
+
 ## Vérifier que ça marche
 
 - `/` doit lister les dossiers réels de la 128447, filtrables par établissement.

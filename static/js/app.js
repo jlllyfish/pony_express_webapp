@@ -1,4 +1,13 @@
 (function () {
+  // Session expirée : toute réponse 401 d'une API renvoie vers la page de connexion
+  const fetchOrigine = window.fetch.bind(window);
+  window.fetch = async (...args) => {
+    const res = await fetchOrigine(...args);
+    if (res.status === 401) {
+      location.href = `/connexion?suivant=${encodeURIComponent(location.pathname + location.hash)}`;
+    }
+    return res;
+  };
   "use strict";
 
   let allDossiers = [];

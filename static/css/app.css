@@ -1386,3 +1386,68 @@ body.vue-bientot .sans-bientot { display: none; }
 .bientot h1 { margin: 0; font-size: 24px; color: var(--violet-fonce, #2A1A6E); }
 .bientot p { margin: 0; max-width: 460px; color: var(--ink-soft); font-size: 15px; }
 body.vue-bientot #btn-refresh { display: none; }
+
+/* Déconnexion en bas du rail */
+.rail-deconnexion {
+  margin: auto 0 24px;
+}
+.rail-deconnexion button.rail-icon {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.rail-tooltip small {
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+/* Toast d'accueil « Hay Prénom ! » (en haut à droite, disparaît seul) */
+.toast-accueil {
+  position: fixed;
+  top: 20px;
+  right: 24px;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px 14px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 12px 30px rgba(40, 26, 110, 0.14);
+  animation: accueil-entree 0.35s ease-out, accueil-sortie 0.4s ease-in 5s forwards;
+}
+.toast-accueil img {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+  background: var(--violet-pale, #f1eeff);
+  border-radius: 12px;
+  padding: 4px;
+}
+.toast-accueil b {
+  display: block;
+  font-size: 16px;
+  color: var(--violet-fonce);
+}
+.toast-accueil span {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.toast-accueil button {
+  margin-left: 8px;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 20px;
+  cursor: pointer;
+}
+@keyframes accueil-entree {
+  from { opacity: 0; transform: translateY(-10px); }
+}
+@keyframes accueil-sortie {
+  to { opacity: 0; transform: translateY(-10px); visibility: hidden; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast-accueil { animation: none; }
+}
