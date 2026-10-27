@@ -1551,3 +1551,23 @@ body.vue-bientot #btn-refresh { display: none; }
   stroke: var(--violet);
   stroke-width: 1.5;
 }
+
+/* Cadre à la hauteur de l'écran (ordinateur) : la page ne défile plus,
+   seuls le contenu et le volet de filtres défilent ; le pied de page reste visible */
+@media (min-width: 821px) {
+  body {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .rail,
+  .filters,
+  .content {
+    min-height: 0;
+  }
+  .rail {
+    overflow-y: auto;
+  }
+}
