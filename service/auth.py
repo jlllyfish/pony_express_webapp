@@ -28,7 +28,7 @@ from service import courriel, utilisateurs as comptes
 
 bp = Blueprint("auth", __name__)
 
-PAGES_PUBLIQUES = {"auth.connexion", "auth.mot_de_passe_oublie", "auth.reinitialiser", "static"}
+PAGES_PUBLIQUES = {"auth.connexion", "auth.mot_de_passe_oublie", "auth.reinitialiser", "static", "favicon"}
 ESSAIS_MAX, FENETRE_ESSAIS = 5, 15 * 60
 _essais: dict = defaultdict(deque)
 

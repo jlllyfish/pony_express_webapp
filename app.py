@@ -40,6 +40,12 @@ def get_dossiers(refresh: bool = False):
     return _cache["dossiers"]
 
 
+@app.get("/favicon.ico")
+def favicon():
+    """Icône demandée d'office par les navigateurs à la racine du site."""
+    return send_file(os.path.join(app.static_folder, "favicon.ico"), mimetype="image/vnd.microsoft.icon")
+
+
 @app.get("/")
 def index():
     return render_template(
