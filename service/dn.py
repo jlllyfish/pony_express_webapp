@@ -129,7 +129,7 @@ DOCUMENTS = {
         },
         "coche": os.environ.get("DN_PERSONNEL_ENVOYE_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5NQ=="),
         "label": os.environ.get("DN_PERSONNEL_LABEL_PEDAGOGIQUE", "TGFiZWwtNTMyNjc5"),
-        "colonne_grist": os.environ.get("GRIST_PERSONNEL_ENVOYE_PEDAGOGIQUE", "contrat_pedagogique_envoye_par_l_ensfea"),
+        "colonne_grist": os.environ.get("GRIST_PERSONNEL_ENVOYE_PEDAGOGIQUE", "contrat_pedagogique_et_attestation_de_presence_envoyes_par_l_ensfea"),
     },
     "financier_personnel": {
         "demarche": "personnel",

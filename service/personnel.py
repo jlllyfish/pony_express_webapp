@@ -23,7 +23,7 @@ TABLE_DOSSIERS = f"Demarche_{DEMARCHE_PERSONNEL}_dossiers"
 GRIST_DOC_ID = os.environ.get("GRIST_DOC_ID_PERSONNEL") or kit.GRIST_DOC_ID
 
 # Colonnes des cases « envoyé » dans les annotations (mêmes noms que les autres démarches par défaut)
-COL_ENVOYE_PEDAGOGIQUE = os.environ.get("GRIST_PERSONNEL_ENVOYE_PEDAGOGIQUE", "contrat_pedagogique_envoye_par_l_ensfea")
+COL_ENVOYE_PEDAGOGIQUE = os.environ.get("GRIST_PERSONNEL_ENVOYE_PEDAGOGIQUE", "contrat_pedagogique_et_attestation_de_presence_envoyes_par_l_ensfea")
 COL_ENVOYE_FINANCIER = os.environ.get("GRIST_PERSONNEL_ENVOYE_FINANCIER", "contrat_financier_envoye_par_l_ensfea")
 
 # Colonnes lues (les autres colonnes des tables ne sont pas téléchargées)
