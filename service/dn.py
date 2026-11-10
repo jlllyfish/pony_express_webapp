@@ -92,7 +92,7 @@ DOCUMENTS = {
             },
             "attestation_groupe": {
                 "nom": "attestation de présence",
-                "pj": os.environ.get("DN_GROUPE_PJ_ATTESTATION", "Q2hhbXAtMjgzNzkwNw=="),
+                "pj": os.environ.get("DN_GROUPE_PJ_ATTESTATION", "Q2hhbXAtNzE3OTIyMw=="),
             },
         },
         "coche": os.environ.get("DN_GROUPE_ENVOYE_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5NQ=="),

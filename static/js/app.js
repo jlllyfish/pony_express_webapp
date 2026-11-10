@@ -109,6 +109,7 @@
 
   // Envoi / synchro DN non configurés pour une démarche (ex : personnel, identifiants DN à venir)
   let envoiConfigure = {};
+  const statutsSession = {}; // {vue: {dossier_number: {document: "genere"}}}
   let synchroConfiguree = true;
   const MESSAGE_NON_CONFIGURE = "Envoi vers DN pas encore configuré pour cette démarche (identifiants des annotations à renseigner)";
 
@@ -521,7 +522,13 @@
     }
     const data = await res.json();
     if (vueChargee !== vue) return; // la page a changé pendant le chargement
-    allDossiers = data.dossiers;
+    // PDF générés pendant la session : conservés au rechargement et au changement de page
+    // (le serveur ne les mémorise pas ; sans ça, les liens de téléchargement disparaissent)
+    const generes = statutsSession[vueChargee] || {};
+    allDossiers = data.dossiers.map((d) => {
+      const avant = generes[String(d.dossier_number)];
+      return avant ? { ...d, statuts: { ...(d.statuts || {}), ...avant } } : d;
+    });
     envoiConfigure = data.envoi || {};
     synchroConfiguree = data.synchro !== false;
     el.filterEtab.innerHTML =
@@ -558,6 +565,8 @@
           (d) => String(d.dossier_number) === id,
         );
         if (dossier) dossier.statuts = { ...(dossier.statuts || {}), [doc]: "genere" };
+        const parVue = (statutsSession[vue] = statutsSession[vue] || {});
+        parVue[String(id)] = { ...(parVue[String(id)] || {}), [doc]: "genere" };
         successCount++;
       } catch (err) {
         failed[id] = err.message;
@@ -701,7 +710,7 @@
       showToastResult("Échec de la vérification", 0, 1, 1);
       showInfoModal("Erreur", [`Vérification : ${err.message}`], "error");
     } finally {
-      el.btnSyncDn.disabled = !sante.dn || !sante.grist;
+      el.btnSyncDn.disabled = !sante.dn || !sante.grist || !synchroConfiguree;
     }
   }
 
