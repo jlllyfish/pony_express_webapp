@@ -507,7 +507,13 @@ def envoyer_document(document: str, dossier_number, pdf_paths: dict) -> None:
     if conf["label"]:  # label facultatif (personnel : à configurer)
         _ajouter_label(dossier_id, conf["label"])
 
-    _marquer_envoye_dans_grist(grist_row_id, conf["colonne_grist"], True, demarche)
+    try:
+        _marquer_envoye_dans_grist(grist_row_id, conf["colonne_grist"], True, demarche)
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(
+            f"Envoyé dans DN, mais statut Grist non mis à jour : la colonne « {conf['colonne_grist']} » "
+            f"existe-t-elle dans {DEMARCHES[demarche]['table_annotations']} ? ({exc})"
+        ) from exc
 
 
 def envoyer_kit_pedagogique(dossier_number, pdf_path: str) -> None:
