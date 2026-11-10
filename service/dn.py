@@ -426,7 +426,8 @@ def synchroniser_statuts_pj_avec_dn(demarche: str = "apprenants") -> dict:
                         info["dossier_id"],
                         [{"id": conf["coche"], "value": {"checkbox": False}}],
                     )
-                    _supprimer_label(info["dossier_id"], conf["label"])
+                    if conf["label"]:
+                        _supprimer_label(info["dossier_id"], conf["label"])
                 except Exception as exc:  # noqa: BLE001
                     erreurs[f"{dossier_number} ({conf['nom']})"] = str(exc)
 
@@ -502,7 +503,8 @@ def envoyer_document(document: str, dossier_number, pdf_paths: dict) -> None:
     modifications.append({"id": conf["coche"], "value": {"checkbox": True}})
     _modifier_annotations(dossier_id, modifications)
 
-    _ajouter_label(dossier_id, conf["label"])
+    if conf["label"]:  # label facultatif (personnel : à configurer)
+        _ajouter_label(dossier_id, conf["label"])
 
     _marquer_envoye_dans_grist(grist_row_id, conf["colonne_grist"], True, demarche)
 
