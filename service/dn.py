@@ -113,8 +113,7 @@ DOCUMENTS = {
         "label": os.environ.get("DN_GROUPE_LABEL_FINANCIER", "TGFiZWwtNTMyNjg5"),
         "colonne_grist": "contrat_financier_envoye_par_l_ensfea",
     },
-    # Personnel (démarche 156966). Pas de case « envoyé » connue : seuls les labels sont posés
-    # (DN_PERSONNEL_ENVOYE_* permet d'ajouter une case si elle existe dans le formulaire).
+    # Personnel (démarche 156966)
     "pedagogique_personnel": {
         "demarche": "personnel",
         "nom": "kit pédagogique et attestation de présence (personnel)",
@@ -128,7 +127,7 @@ DOCUMENTS = {
                 "pj": os.environ.get("DN_PERSONNEL_PJ_ATTESTATION", "Q2hhbXAtNzE2Mjg5OQ=="),
             },
         },
-        "coche": os.environ.get("DN_PERSONNEL_ENVOYE_PEDAGOGIQUE"),
+        "coche": os.environ.get("DN_PERSONNEL_ENVOYE_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5NQ=="),
         "label": os.environ.get("DN_PERSONNEL_LABEL_PEDAGOGIQUE", "TGFiZWwtNTMyNjc5"),
         "colonne_grist": os.environ.get("GRIST_PERSONNEL_ENVOYE_PEDAGOGIQUE", "contrat_pedagogique_envoye_par_l_ensfea"),
     },
@@ -141,7 +140,7 @@ DOCUMENTS = {
                 "pj": os.environ.get("DN_PERSONNEL_PJ_FINANCIER", "Q2hhbXAtMjYwODUyMA=="),
             },
         },
-        "coche": os.environ.get("DN_PERSONNEL_ENVOYE_FINANCIER"),
+        "coche": os.environ.get("DN_PERSONNEL_ENVOYE_FINANCIER", "Q2hhbXAtMjg2Mzg1Nw=="),
         "label": os.environ.get("DN_PERSONNEL_LABEL_FINANCIER", "TGFiZWwtNTMyNjc4"),
         "colonne_grist": os.environ.get("GRIST_PERSONNEL_ENVOYE_FINANCIER", "contrat_financier_envoye_par_l_ensfea"),
     },
