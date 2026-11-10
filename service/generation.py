@@ -43,6 +43,8 @@ PIECES = {
     "financier": ["financier"],
     "pedagogique_groupe": ["pedagogique_groupe"],
     "financier_groupe": ["financier_groupe"],
+    "pedagogique_personnel": ["pedagogique_personnel", "attestation_personnel"],
+    "financier_personnel": ["financier_personnel"],
 }
 
 

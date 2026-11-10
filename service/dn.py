@@ -41,6 +41,12 @@ DEMARCHES = {
         "table_dossiers": "Demarche_156967_dossiers",
         "table_annotations": "Demarche_156967_annotations",
     },
+    "personnel": {
+        "numero": 156966,
+        "doc_id": os.environ.get("GRIST_DOC_ID_PERSONNEL") or kit.GRIST_DOC_ID,
+        "table_dossiers": "Demarche_156966_dossiers",
+        "table_annotations": "Demarche_156966_annotations",
+    },
 }
 
 # Ids DN à mettre à jour si le formulaire des annotations privées change
@@ -103,7 +109,52 @@ DOCUMENTS = {
         "label": os.environ.get("DN_GROUPE_LABEL_FINANCIER", "TGFiZWwtNTMyNjg5"),
         "colonne_grist": "contrat_financier_envoye_par_l_ensfea",
     },
+    # Personnel (démarche 156966) : identifiants DN à renseigner (variables DN_PERSONNEL_*).
+    # Tant qu'ils manquent, la génération fonctionne mais l'envoi et la synchro sont refusés.
+    "pedagogique_personnel": {
+        "demarche": "personnel",
+        "nom": "kit pédagogique et attestation de présence (personnel)",
+        "pieces": {
+            "pedagogique_personnel": {
+                "nom": "kit pédagogique",
+                "pj": os.environ.get("DN_PERSONNEL_PJ_PEDAGOGIQUE"),
+            },
+            "attestation_personnel": {
+                "nom": "attestation de présence",
+                "pj": os.environ.get("DN_PERSONNEL_PJ_ATTESTATION"),
+            },
+        },
+        "coche": os.environ.get("DN_PERSONNEL_ENVOYE_PEDAGOGIQUE"),
+        "label": os.environ.get("DN_PERSONNEL_LABEL_PEDAGOGIQUE"),
+        "colonne_grist": os.environ.get("GRIST_PERSONNEL_ENVOYE_PEDAGOGIQUE", "contrat_pedagogique_envoye_par_l_ensfea"),
+    },
+    "financier_personnel": {
+        "demarche": "personnel",
+        "nom": "contrat financier (personnel)",
+        "pieces": {
+            "financier_personnel": {
+                "nom": "contrat financier",
+                "pj": os.environ.get("DN_PERSONNEL_PJ_FINANCIER"),
+            },
+        },
+        "coche": os.environ.get("DN_PERSONNEL_ENVOYE_FINANCIER"),
+        "label": os.environ.get("DN_PERSONNEL_LABEL_FINANCIER"),
+        "colonne_grist": os.environ.get("GRIST_PERSONNEL_ENVOYE_FINANCIER", "contrat_financier_envoye_par_l_ensfea"),
+    },
 }
+
+
+def configuration_manquante(document: str) -> list[str]:
+    """Identifiants DN absents pour un document (PJ et case « envoyé » obligatoires)."""
+    conf = DOCUMENTS[document]
+    manquants = [f"PJ {p['nom']}" for p in conf["pieces"].values() if not p["pj"]]
+    if not conf["coche"]:
+        manquants.append("case « envoyé »")
+    return manquants
+
+
+def demarche_configuree(demarche: str) -> bool:
+    return all(not configuration_manquante(d) for d, c in DOCUMENTS.items() if c["demarche"] == demarche)
 
 # Annotations voisines au libellé proche : l'app ne doit JAMAIS les modifier
 ANNOTATIONS_PROTEGEES = {
@@ -336,6 +387,8 @@ def synchroniser_statuts_pj_avec_dn(demarche: str = "apprenants") -> dict:
     """
     if demarche not in DEMARCHES:
         raise ValueError(f"Démarche inconnue : {demarche}")
+    if not demarche_configuree(demarche):
+        raise RuntimeError("Synchronisation impossible : identifiants DN de cette démarche pas encore configurés.")
     documents = _documents(demarche)
     table = DEMARCHES[demarche]["table_annotations"]
     statuts_dn = fetch_statuts_pj_dn(demarche)
@@ -405,6 +458,11 @@ def envoyer_document(document: str, dossier_number, pdf_paths: dict) -> None:
     l'envoi est refusé. Nettoyage éventuel : à la main, côté instructeur DN.
     """
     conf = _doc(document)
+    manquants = configuration_manquante(document)
+    if manquants:
+        raise RuntimeError(
+            f"Envoi du {conf['nom']} pas encore configuré : identifiants DN manquants ({', '.join(manquants)})"
+        )
     demarche = conf["demarche"]
     dossier_id, grist_row_id = _get_dossier_and_annotation_ids(dossier_number, demarche)
 

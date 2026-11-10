@@ -36,12 +36,11 @@
       recherche: "Centre constitutif",
     },
     personnel: {
-      api: null,
-      bientot: "La page des mobilités du personnel est en préparation : liste des dossiers, génération et envoi des kits.",
-      documents: { pedagogique: "pedagogique", financier: "financier" },
+      api: "/api/personnel",
+      documents: { pedagogique: "pedagogique_personnel", financier: "financier_personnel" },
       libellePedagogique: "Kit péda + attestation",
       titre: "Mobilités du personnel",
-      recherche: "",
+      recherche: "Nom du participant",
     },
     experts: {
       api: null,
@@ -88,7 +87,27 @@
       champ: "envoye_financier",
       pdfs: [["financier_groupe", "contrat financier"]],
     },
+    pedagogique_personnel: {
+      court: "le kit péda + attestation",
+      nom: "kit pédagogique et de l'attestation",
+      champ: "envoye_pedagogique",
+      pdfs: [
+        ["pedagogique_personnel", "kit pédagogique"],
+        ["attestation_personnel", "attestation de présence"],
+      ],
+    },
+    financier_personnel: {
+      court: "le contrat financier",
+      nom: "contrat financier",
+      champ: "envoye_financier",
+      pdfs: [["financier_personnel", "contrat financier"]],
+    },
   };
+
+  // Envoi / synchro DN non configurés pour une démarche (ex : personnel, identifiants DN à venir)
+  let envoiConfigure = {};
+  let synchroConfiguree = true;
+  const MESSAGE_NON_CONFIGURE = "Envoi vers DN pas encore configuré pour cette démarche (identifiants des annotations à renseigner)";
 
   function setDocument(value) {
     documentActif = value;
@@ -406,8 +425,9 @@
           <hr class="card-divider">
 
           <a class="card-sub card-dossier-link"
-             href="https://demarche.numerique.gouv.fr/procedures/128447/a-suivre/dossiers/${dossier.dossier_number}"
+             href="https://demarche.numerique.gouv.fr/procedures/${dossier.demarche || 128447}/a-suivre/dossiers/${dossier.dossier_number}"
              target="_blank" rel="noopener noreferrer">Dossier ${dossier.dossier_number}</a>
+          ${dossier.type_mobilite ? `<p class="card-type">${dossier.type_mobilite}</p>` : ""}
 
           ${activite ? `<p class="card-dates">${calendarIcon}${activite}</p>` : ""}
           ${trajet ? `<p class="card-dates card-dates--soft">${calendarIcon}${trajet}</p>` : ""}
@@ -453,8 +473,11 @@
     el.selCount.textContent = `(${selected.size})`;
     // Boutons grisés si le service nécessaire est en échec
     el.btnGenerate.disabled = selected.size === 0 || !sante.grist;
-    el.btnSend.disabled = selected.size === 0 || !sante.grist || !sante.dn;
-    el.btnSyncDn.disabled = !sante.dn || !sante.grist;
+    const envoiOk = envoiConfigure[documentActif] !== false;
+    el.btnSend.disabled = selected.size === 0 || !sante.grist || !sante.dn || !envoiOk;
+    el.btnSend.title = envoiOk ? "" : MESSAGE_NON_CONFIGURE;
+    el.btnSyncDn.disabled = !sante.dn || !sante.grist || !synchroConfiguree;
+    el.btnSyncDn.title = synchroConfiguree ? "" : MESSAGE_NON_CONFIGURE;
 
     const visibleIds = allDossiers
       .filter(matches)
@@ -496,6 +519,8 @@
     const data = await res.json();
     if (vueChargee !== vue) return; // la page a changé pendant le chargement
     allDossiers = data.dossiers;
+    envoiConfigure = data.envoi || {};
+    synchroConfiguree = data.synchro !== false;
     el.filterEtab.innerHTML =
       '<option value="">Tous les établissements</option>';
     populateEtablissements(data.etablissements);
