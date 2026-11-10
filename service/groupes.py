@@ -57,7 +57,11 @@ COLONNES_CHAMPS = [
     "nombre_d_apprenants_total",
     "combien_d_accompagnateurs_sont_prevus",
 ]
-COLONNES_ANNOTATIONS = ["contrat_pedagogique_envoye_par_l_ensfea", "contrat_financier_envoye_par_l_ensfea"]
+# Colonne de la case « kit péda envoyé » (contrat pédagogique + attestation de présence)
+COL_ENVOYE_PEDAGOGIQUE = os.environ.get(
+    "GRIST_GROUPE_ENVOYE_PEDAGOGIQUE", "contrat_pedagogique_et_attestation_de_presence_envoyes_par_l_ensfea"
+)
+COLONNES_ANNOTATIONS = [COL_ENVOYE_PEDAGOGIQUE, "contrat_financier_envoye_par_l_ensfea"]
 COLONNES_DOSSIERS = ["state"]
 
 
@@ -101,7 +105,7 @@ def list_groupes() -> list[dict]:
                 "effectif": _entier(row.get("nombre_d_apprenants_total")),
                 "accompagnateurs": clean_text(row.get("combien_d_accompagnateurs_sont_prevus")),
                 "state": clean_text(dossier.get("state")),
-                "envoye_pedagogique": bool(annot.get("contrat_pedagogique_envoye_par_l_ensfea")),
+                "envoye_pedagogique": bool(annot.get(COL_ENVOYE_PEDAGOGIQUE)),
                 "envoye_financier": bool(annot.get("contrat_financier_envoye_par_l_ensfea")),
                 # statut de génération, non persisté (mémoire de la session)
                 "statuts": {"pedagogique_groupe": "non_genere", "financier_groupe": "non_genere"},

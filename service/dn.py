@@ -97,7 +97,7 @@ DOCUMENTS = {
         },
         "coche": os.environ.get("DN_GROUPE_ENVOYE_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5NQ=="),
         "label": os.environ.get("DN_GROUPE_LABEL_PEDAGOGIQUE", "TGFiZWwtNTMyNjkw"),
-        "colonne_grist": "contrat_pedagogique_envoye_par_l_ensfea",
+        "colonne_grist": os.environ.get("GRIST_GROUPE_ENVOYE_PEDAGOGIQUE", "contrat_pedagogique_et_attestation_de_presence_envoyes_par_l_ensfea"),
     },
     "financier_groupe": {
         "demarche": "groupes",
