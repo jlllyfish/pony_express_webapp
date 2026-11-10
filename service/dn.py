@@ -84,11 +84,15 @@ DOCUMENTS = {
     },
     "pedagogique_groupe": {
         "demarche": "groupes",
-        "nom": "contrat pédagogique (groupe)",
+        "nom": "contrat pédagogique et attestation de présence (groupe)",
         "pieces": {
             "pedagogique_groupe": {
                 "nom": "contrat pédagogique",
                 "pj": os.environ.get("DN_GROUPE_PJ_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5Ng=="),
+            },
+            "attestation_groupe": {
+                "nom": "attestation de présence",
+                "pj": os.environ.get("DN_GROUPE_PJ_ATTESTATION", "Q2hhbXAtMjgzNzkwNw=="),
             },
         },
         "coche": os.environ.get("DN_GROUPE_ENVOYE_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5NQ=="),
@@ -109,23 +113,23 @@ DOCUMENTS = {
         "label": os.environ.get("DN_GROUPE_LABEL_FINANCIER", "TGFiZWwtNTMyNjg5"),
         "colonne_grist": "contrat_financier_envoye_par_l_ensfea",
     },
-    # Personnel (démarche 156966) : identifiants DN à renseigner (variables DN_PERSONNEL_*).
-    # Tant qu'ils manquent, la génération fonctionne mais l'envoi et la synchro sont refusés.
+    # Personnel (démarche 156966). Pas de case « envoyé » connue : seuls les labels sont posés
+    # (DN_PERSONNEL_ENVOYE_* permet d'ajouter une case si elle existe dans le formulaire).
     "pedagogique_personnel": {
         "demarche": "personnel",
         "nom": "kit pédagogique et attestation de présence (personnel)",
         "pieces": {
             "pedagogique_personnel": {
                 "nom": "kit pédagogique",
-                "pj": os.environ.get("DN_PERSONNEL_PJ_PEDAGOGIQUE"),
+                "pj": os.environ.get("DN_PERSONNEL_PJ_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5Ng=="),
             },
             "attestation_personnel": {
                 "nom": "attestation de présence",
-                "pj": os.environ.get("DN_PERSONNEL_PJ_ATTESTATION"),
+                "pj": os.environ.get("DN_PERSONNEL_PJ_ATTESTATION", "Q2hhbXAtNzE2Mjg5OQ=="),
             },
         },
         "coche": os.environ.get("DN_PERSONNEL_ENVOYE_PEDAGOGIQUE"),
-        "label": os.environ.get("DN_PERSONNEL_LABEL_PEDAGOGIQUE"),
+        "label": os.environ.get("DN_PERSONNEL_LABEL_PEDAGOGIQUE", "TGFiZWwtNTMyNjc5"),
         "colonne_grist": os.environ.get("GRIST_PERSONNEL_ENVOYE_PEDAGOGIQUE", "contrat_pedagogique_envoye_par_l_ensfea"),
     },
     "financier_personnel": {
@@ -134,23 +138,20 @@ DOCUMENTS = {
         "pieces": {
             "financier_personnel": {
                 "nom": "contrat financier",
-                "pj": os.environ.get("DN_PERSONNEL_PJ_FINANCIER"),
+                "pj": os.environ.get("DN_PERSONNEL_PJ_FINANCIER", "Q2hhbXAtMjYwODUyMA=="),
             },
         },
         "coche": os.environ.get("DN_PERSONNEL_ENVOYE_FINANCIER"),
-        "label": os.environ.get("DN_PERSONNEL_LABEL_FINANCIER"),
+        "label": os.environ.get("DN_PERSONNEL_LABEL_FINANCIER", "TGFiZWwtNTMyNjc4"),
         "colonne_grist": os.environ.get("GRIST_PERSONNEL_ENVOYE_FINANCIER", "contrat_financier_envoye_par_l_ensfea"),
     },
 }
 
 
 def configuration_manquante(document: str) -> list[str]:
-    """Identifiants DN absents pour un document (PJ et case « envoyé » obligatoires)."""
+    """Identifiants DN absents pour un document (les PJ sont obligatoires ; case et label facultatifs)."""
     conf = DOCUMENTS[document]
-    manquants = [f"PJ {p['nom']}" for p in conf["pieces"].values() if not p["pj"]]
-    if not conf["coche"]:
-        manquants.append("case « envoyé »")
-    return manquants
+    return [f"PJ {p['nom']}" for p in conf["pieces"].values() if not p["pj"]]
 
 
 def demarche_configuree(demarche: str) -> bool:
@@ -364,7 +365,7 @@ def fetch_statuts_pj_dn(demarche: str = "apprenants") -> dict:
             info = {"dossier_id": node["id"]}
             for document, conf in _documents(demarche).items():
                 pjs = [par_id.get(p["pj"]) for p in conf["pieces"].values()]
-                coche = par_id.get(conf["coche"])
+                coche = par_id.get(conf["coche"]) if conf["coche"] else None
                 info[document] = {
                     # toutes les PJ du document existent dans le formulaire DN
                     "pj_trouvee": all(pj is not None for pj in pjs),
@@ -468,7 +469,7 @@ def envoyer_document(document: str, dossier_number, pdf_paths: dict) -> None:
     dossier_id, grist_row_id = _get_dossier_and_annotation_ids(dossier_number, demarche)
 
     annotations = _annotations_dossier(dossier_number)
-    if conf["coche"] not in annotations:
+    if conf["coche"] and conf["coche"] not in annotations:
         raise RuntimeError(f"Case {conf['coche']} ({conf['nom']}) introuvable dans DN")
 
     a_envoyer, deja_la = [], []
@@ -500,7 +501,8 @@ def envoyer_document(document: str, dossier_number, pdf_paths: dict) -> None:
             {"id": piece["pj"], "value": {"pieceJustificative": [signed_blob_id]}}
         )
     # Toutes les PJ sont maintenant remplies (déjà là + envoyées) : on coche
-    modifications.append({"id": conf["coche"], "value": {"checkbox": True}})
+    if conf["coche"]:  # case « envoyé » facultative (personnel : labels seulement)
+        modifications.append({"id": conf["coche"], "value": {"checkbox": True}})
     _modifier_annotations(dossier_id, modifications)
 
     if conf["label"]:  # label facultatif (personnel : à configurer)

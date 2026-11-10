@@ -31,7 +31,7 @@
     groupes: {
       api: "/api/groupes",
       documents: { pedagogique: "pedagogique_groupe", financier: "financier_groupe" },
-      libellePedagogique: "Contrat péda",
+      libellePedagogique: "Contrat péda + attestation",
       titre: "Mobilités de groupe",
       recherche: "Centre constitutif",
     },
@@ -76,10 +76,13 @@
       pdfs: [["financier", "contrat financier"]],
     },
     pedagogique_groupe: {
-      court: "le contrat péda",
-      nom: "contrat pédagogique",
+      court: "le contrat péda + attestation",
+      nom: "contrat pédagogique et de l'attestation",
       champ: "envoye_pedagogique",
-      pdfs: [["pedagogique_groupe", "contrat pédagogique"]],
+      pdfs: [
+        ["pedagogique_groupe", "contrat pédagogique"],
+        ["attestation_groupe", "attestation de présence"],
+      ],
     },
     financier_groupe: {
       court: "le contrat financier",
@@ -347,7 +350,7 @@
           </div>
 
           <div class="card-checks">
-            <span class="check-item">${coche(g.envoye_pedagogique)} Contrat pédagogique</span>
+            <span class="check-item">${coche(g.envoye_pedagogique)} Contrat pédagogique et attestation</span>
             <span class="check-item">${coche(g.envoye_financier)} Contrat financier</span>
           </div>
         </div>
