@@ -31,17 +31,16 @@
     groupes: {
       api: "/api/groupes",
       documents: { pedagogique: "pedagogique_groupe", financier: "financier_groupe" },
-      libellePedagogique: "Contrat péda",
+      libellePedagogique: "Contrat péda + attestation",
       titre: "Mobilités de groupe",
       recherche: "Centre constitutif",
     },
     personnel: {
-      api: null,
-      bientot: "La page des mobilités du personnel est en préparation : liste des dossiers, génération et envoi des kits.",
-      documents: { pedagogique: "pedagogique", financier: "financier" },
+      api: "/api/personnel",
+      documents: { pedagogique: "pedagogique_personnel", financier: "financier_personnel" },
       libellePedagogique: "Kit péda + attestation",
       titre: "Mobilités du personnel",
-      recherche: "",
+      recherche: "Nom du participant",
     },
     experts: {
       api: null,
@@ -77,10 +76,13 @@
       pdfs: [["financier", "contrat financier"]],
     },
     pedagogique_groupe: {
-      court: "le contrat péda",
-      nom: "contrat pédagogique",
+      court: "le contrat péda + attestation",
+      nom: "contrat pédagogique et de l'attestation",
       champ: "envoye_pedagogique",
-      pdfs: [["pedagogique_groupe", "contrat pédagogique"]],
+      pdfs: [
+        ["pedagogique_groupe", "contrat pédagogique"],
+        ["attestation_groupe", "attestation de présence"],
+      ],
     },
     financier_groupe: {
       court: "le contrat financier",
@@ -88,7 +90,28 @@
       champ: "envoye_financier",
       pdfs: [["financier_groupe", "contrat financier"]],
     },
+    pedagogique_personnel: {
+      court: "le kit péda + attestation",
+      nom: "kit pédagogique et de l'attestation",
+      champ: "envoye_pedagogique",
+      pdfs: [
+        ["pedagogique_personnel", "kit pédagogique"],
+        ["attestation_personnel", "attestation de présence"],
+      ],
+    },
+    financier_personnel: {
+      court: "le contrat financier",
+      nom: "contrat financier",
+      champ: "envoye_financier",
+      pdfs: [["financier_personnel", "contrat financier"]],
+    },
   };
+
+  // Envoi / synchro DN non configurés pour une démarche (ex : personnel, identifiants DN à venir)
+  let envoiConfigure = {};
+  const statutsSession = {}; // {vue: {dossier_number: {document: "genere"}}}
+  let synchroConfiguree = true;
+  const MESSAGE_NON_CONFIGURE = "Envoi vers DN pas encore configuré pour cette démarche (identifiants des annotations à renseigner)";
 
   function setDocument(value) {
     documentActif = value;
@@ -328,7 +351,7 @@
           </div>
 
           <div class="card-checks">
-            <span class="check-item">${coche(g.envoye_pedagogique)} Contrat pédagogique</span>
+            <span class="check-item">${coche(g.envoye_pedagogique)} Contrat pédagogique et attestation</span>
             <span class="check-item">${coche(g.envoye_financier)} Contrat financier</span>
           </div>
         </div>
@@ -406,8 +429,9 @@
           <hr class="card-divider">
 
           <a class="card-sub card-dossier-link"
-             href="https://demarche.numerique.gouv.fr/procedures/128447/a-suivre/dossiers/${dossier.dossier_number}"
+             href="https://demarche.numerique.gouv.fr/procedures/${dossier.demarche || 128447}/a-suivre/dossiers/${dossier.dossier_number}"
              target="_blank" rel="noopener noreferrer">Dossier ${dossier.dossier_number}</a>
+          ${dossier.type_mobilite ? `<p class="card-type">${dossier.type_mobilite}</p>` : ""}
 
           ${activite ? `<p class="card-dates">${calendarIcon}${activite}</p>` : ""}
           ${trajet ? `<p class="card-dates card-dates--soft">${calendarIcon}${trajet}</p>` : ""}
@@ -453,8 +477,11 @@
     el.selCount.textContent = `(${selected.size})`;
     // Boutons grisés si le service nécessaire est en échec
     el.btnGenerate.disabled = selected.size === 0 || !sante.grist;
-    el.btnSend.disabled = selected.size === 0 || !sante.grist || !sante.dn;
-    el.btnSyncDn.disabled = !sante.dn || !sante.grist;
+    const envoiOk = envoiConfigure[documentActif] !== false;
+    el.btnSend.disabled = selected.size === 0 || !sante.grist || !sante.dn || !envoiOk;
+    el.btnSend.title = envoiOk ? "" : MESSAGE_NON_CONFIGURE;
+    el.btnSyncDn.disabled = !sante.dn || !sante.grist || !synchroConfiguree;
+    el.btnSyncDn.title = synchroConfiguree ? "" : MESSAGE_NON_CONFIGURE;
 
     const visibleIds = allDossiers
       .filter(matches)
@@ -495,7 +522,15 @@
     }
     const data = await res.json();
     if (vueChargee !== vue) return; // la page a changé pendant le chargement
-    allDossiers = data.dossiers;
+    // PDF générés pendant la session : conservés au rechargement et au changement de page
+    // (le serveur ne les mémorise pas ; sans ça, les liens de téléchargement disparaissent)
+    const generes = statutsSession[vueChargee] || {};
+    allDossiers = data.dossiers.map((d) => {
+      const avant = generes[String(d.dossier_number)];
+      return avant ? { ...d, statuts: { ...(d.statuts || {}), ...avant } } : d;
+    });
+    envoiConfigure = data.envoi || {};
+    synchroConfiguree = data.synchro !== false;
     el.filterEtab.innerHTML =
       '<option value="">Tous les établissements</option>';
     populateEtablissements(data.etablissements);
@@ -530,6 +565,8 @@
           (d) => String(d.dossier_number) === id,
         );
         if (dossier) dossier.statuts = { ...(dossier.statuts || {}), [doc]: "genere" };
+        const parVue = (statutsSession[vue] = statutsSession[vue] || {});
+        parVue[String(id)] = { ...(parVue[String(id)] || {}), [doc]: "genere" };
         successCount++;
       } catch (err) {
         failed[id] = err.message;
@@ -673,7 +710,7 @@
       showToastResult("Échec de la vérification", 0, 1, 1);
       showInfoModal("Erreur", [`Vérification : ${err.message}`], "error");
     } finally {
-      el.btnSyncDn.disabled = !sante.dn || !sante.grist;
+      el.btnSyncDn.disabled = !sante.dn || !sante.grist || !synchroConfiguree;
     }
   }
 

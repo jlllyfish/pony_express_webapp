@@ -41,6 +41,12 @@ DEMARCHES = {
         "table_dossiers": "Demarche_156967_dossiers",
         "table_annotations": "Demarche_156967_annotations",
     },
+    "personnel": {
+        "numero": 156966,
+        "doc_id": os.environ.get("GRIST_DOC_ID_PERSONNEL") or kit.GRIST_DOC_ID,
+        "table_dossiers": "Demarche_156966_dossiers",
+        "table_annotations": "Demarche_156966_annotations",
+    },
 }
 
 # Ids DN à mettre à jour si le formulaire des annotations privées change
@@ -78,16 +84,20 @@ DOCUMENTS = {
     },
     "pedagogique_groupe": {
         "demarche": "groupes",
-        "nom": "contrat pédagogique (groupe)",
+        "nom": "contrat pédagogique et attestation de présence (groupe)",
         "pieces": {
             "pedagogique_groupe": {
                 "nom": "contrat pédagogique",
                 "pj": os.environ.get("DN_GROUPE_PJ_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5Ng=="),
             },
+            "attestation_groupe": {
+                "nom": "attestation de présence",
+                "pj": os.environ.get("DN_GROUPE_PJ_ATTESTATION", "Q2hhbXAtNzE3OTIyMw=="),
+            },
         },
         "coche": os.environ.get("DN_GROUPE_ENVOYE_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5NQ=="),
         "label": os.environ.get("DN_GROUPE_LABEL_PEDAGOGIQUE", "TGFiZWwtNTMyNjkw"),
-        "colonne_grist": "contrat_pedagogique_envoye_par_l_ensfea",
+        "colonne_grist": os.environ.get("GRIST_GROUPE_ENVOYE_PEDAGOGIQUE", "contrat_pedagogique_et_attestation_de_presence_envoyes_par_l_ensfea"),
     },
     "financier_groupe": {
         "demarche": "groupes",
@@ -103,7 +113,48 @@ DOCUMENTS = {
         "label": os.environ.get("DN_GROUPE_LABEL_FINANCIER", "TGFiZWwtNTMyNjg5"),
         "colonne_grist": "contrat_financier_envoye_par_l_ensfea",
     },
+    # Personnel (démarche 156966)
+    "pedagogique_personnel": {
+        "demarche": "personnel",
+        "nom": "kit pédagogique et attestation de présence (personnel)",
+        "pieces": {
+            "pedagogique_personnel": {
+                "nom": "kit pédagogique",
+                "pj": os.environ.get("DN_PERSONNEL_PJ_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5Ng=="),
+            },
+            "attestation_personnel": {
+                "nom": "attestation de présence",
+                "pj": os.environ.get("DN_PERSONNEL_PJ_ATTESTATION", "Q2hhbXAtNzE2Mjg5OQ=="),
+            },
+        },
+        "coche": os.environ.get("DN_PERSONNEL_ENVOYE_PEDAGOGIQUE", "Q2hhbXAtNjk2OTQ5NQ=="),
+        "label": os.environ.get("DN_PERSONNEL_LABEL_PEDAGOGIQUE", "TGFiZWwtNTMyNjc5"),
+        "colonne_grist": os.environ.get("GRIST_PERSONNEL_ENVOYE_PEDAGOGIQUE", "contrat_pedagogique_et_attestation_de_presence_envoyes_par_l_ensfea"),
+    },
+    "financier_personnel": {
+        "demarche": "personnel",
+        "nom": "contrat financier (personnel)",
+        "pieces": {
+            "financier_personnel": {
+                "nom": "contrat financier",
+                "pj": os.environ.get("DN_PERSONNEL_PJ_FINANCIER", "Q2hhbXAtMjYwODUyMA=="),
+            },
+        },
+        "coche": os.environ.get("DN_PERSONNEL_ENVOYE_FINANCIER", "Q2hhbXAtMjg2Mzg1Nw=="),
+        "label": os.environ.get("DN_PERSONNEL_LABEL_FINANCIER", "TGFiZWwtNTMyNjc4"),
+        "colonne_grist": os.environ.get("GRIST_PERSONNEL_ENVOYE_FINANCIER", "contrat_financier_envoye_par_l_ensfea"),
+    },
 }
+
+
+def configuration_manquante(document: str) -> list[str]:
+    """Identifiants DN absents pour un document (les PJ sont obligatoires ; case et label facultatifs)."""
+    conf = DOCUMENTS[document]
+    return [f"PJ {p['nom']}" for p in conf["pieces"].values() if not p["pj"]]
+
+
+def demarche_configuree(demarche: str) -> bool:
+    return all(not configuration_manquante(d) for d, c in DOCUMENTS.items() if c["demarche"] == demarche)
 
 # Annotations voisines au libellé proche : l'app ne doit JAMAIS les modifier
 ANNOTATIONS_PROTEGEES = {
@@ -313,7 +364,7 @@ def fetch_statuts_pj_dn(demarche: str = "apprenants") -> dict:
             info = {"dossier_id": node["id"]}
             for document, conf in _documents(demarche).items():
                 pjs = [par_id.get(p["pj"]) for p in conf["pieces"].values()]
-                coche = par_id.get(conf["coche"])
+                coche = par_id.get(conf["coche"]) if conf["coche"] else None
                 info[document] = {
                     # toutes les PJ du document existent dans le formulaire DN
                     "pj_trouvee": all(pj is not None for pj in pjs),
@@ -336,6 +387,8 @@ def synchroniser_statuts_pj_avec_dn(demarche: str = "apprenants") -> dict:
     """
     if demarche not in DEMARCHES:
         raise ValueError(f"Démarche inconnue : {demarche}")
+    if not demarche_configuree(demarche):
+        raise RuntimeError("Synchronisation impossible : identifiants DN de cette démarche pas encore configurés.")
     documents = _documents(demarche)
     table = DEMARCHES[demarche]["table_annotations"]
     statuts_dn = fetch_statuts_pj_dn(demarche)
@@ -373,7 +426,8 @@ def synchroniser_statuts_pj_avec_dn(demarche: str = "apprenants") -> dict:
                         info["dossier_id"],
                         [{"id": conf["coche"], "value": {"checkbox": False}}],
                     )
-                    _supprimer_label(info["dossier_id"], conf["label"])
+                    if conf["label"]:
+                        _supprimer_label(info["dossier_id"], conf["label"])
                 except Exception as exc:  # noqa: BLE001
                     erreurs[f"{dossier_number} ({conf['nom']})"] = str(exc)
 
@@ -405,11 +459,16 @@ def envoyer_document(document: str, dossier_number, pdf_paths: dict) -> None:
     l'envoi est refusé. Nettoyage éventuel : à la main, côté instructeur DN.
     """
     conf = _doc(document)
+    manquants = configuration_manquante(document)
+    if manquants:
+        raise RuntimeError(
+            f"Envoi du {conf['nom']} pas encore configuré : identifiants DN manquants ({', '.join(manquants)})"
+        )
     demarche = conf["demarche"]
     dossier_id, grist_row_id = _get_dossier_and_annotation_ids(dossier_number, demarche)
 
     annotations = _annotations_dossier(dossier_number)
-    if conf["coche"] not in annotations:
+    if conf["coche"] and conf["coche"] not in annotations:
         raise RuntimeError(f"Case {conf['coche']} ({conf['nom']}) introuvable dans DN")
 
     a_envoyer, deja_la = [], []
@@ -441,12 +500,20 @@ def envoyer_document(document: str, dossier_number, pdf_paths: dict) -> None:
             {"id": piece["pj"], "value": {"pieceJustificative": [signed_blob_id]}}
         )
     # Toutes les PJ sont maintenant remplies (déjà là + envoyées) : on coche
-    modifications.append({"id": conf["coche"], "value": {"checkbox": True}})
+    if conf["coche"]:  # case « envoyé » facultative (personnel : labels seulement)
+        modifications.append({"id": conf["coche"], "value": {"checkbox": True}})
     _modifier_annotations(dossier_id, modifications)
 
-    _ajouter_label(dossier_id, conf["label"])
+    if conf["label"]:  # label facultatif (personnel : à configurer)
+        _ajouter_label(dossier_id, conf["label"])
 
-    _marquer_envoye_dans_grist(grist_row_id, conf["colonne_grist"], True, demarche)
+    try:
+        _marquer_envoye_dans_grist(grist_row_id, conf["colonne_grist"], True, demarche)
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(
+            f"Envoyé dans DN, mais statut Grist non mis à jour : la colonne « {conf['colonne_grist']} » "
+            f"existe-t-elle dans {DEMARCHES[demarche]['table_annotations']} ? ({exc})"
+        ) from exc
 
 
 def envoyer_kit_pedagogique(dossier_number, pdf_path: str) -> None:

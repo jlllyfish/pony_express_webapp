@@ -1615,3 +1615,11 @@ body.vue-bientot #btn-refresh { display: none; }
   .filters-actions .pill { padding: 6px 12px; font-size: 12px; }
   .app-footer { padding-top: 8px; padding-bottom: 8px; }
 }
+
+/* Type de mobilité du personnel sur la tuile */
+.card-type {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--violet-fonce);
+}

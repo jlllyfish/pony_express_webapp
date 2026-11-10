@@ -9,10 +9,17 @@ import secrets
 
 from flask import Flask, g, jsonify, render_template, request, send_file
 
-from service.dn import DOCUMENTS, envoyer_document, synchroniser_statuts_pj_avec_dn
+from service.dn import (
+    DOCUMENTS,
+    configuration_manquante,
+    demarche_configuree,
+    envoyer_document,
+    synchroniser_statuts_pj_avec_dn,
+)
 from service.dossiers import list_dossiers, list_etablissements
 from service.dashboard import donnees_dashboard
 from service.groupes import list_groupes
+from service.personnel import list_personnel
 from service.sante import etat_de_sante
 from service.generation import TEMPLATES, generate_document, generate_pieces
 
@@ -31,7 +38,7 @@ auth.init_app(app)
 
 # Pas de base de données : le doc Grist est la source de vérité.
 # Ce cache mémoire évite de retaper Grist à chaque requête ; un restart le reconstruit.
-_cache = {"dossiers": None, "groupes": None}
+_cache = {"dossiers": None, "groupes": None, "personnel": None}
 
 
 def get_dossiers(refresh: bool = False):
@@ -100,6 +107,24 @@ def api_groupes():
         return jsonify({"error": str(exc)}), 500
     groupes = _cache["groupes"]
     return jsonify({"dossiers": groupes, "etablissements": list_etablissements(groupes)})
+
+
+@app.get("/api/personnel")
+def api_personnel():
+    """Mobilités du personnel (démarche 156966)."""
+    try:
+        if _cache["personnel"] is None or request.args.get("refresh") == "1":
+            _cache["personnel"] = list_personnel()
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": str(exc)}), 500
+    personnes = _cache["personnel"]
+    return jsonify({
+        "dossiers": personnes,
+        "etablissements": list_etablissements(personnes),
+        # envoi / synchro DN possibles seulement si les identifiants DN sont configurés
+        "envoi": {d: not configuration_manquante(d) for d in ("pedagogique_personnel", "financier_personnel")},
+        "synchro": demarche_configuree("personnel"),
+    })
 
 
 @app.post("/api/dossiers/sync-dn")
