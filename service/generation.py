@@ -13,10 +13,14 @@ from pony_express.service.pdf import generate_pdf
 from pony_express.service.utils import TEMPLATES_FOLDER_PATH
 from pony_express.templates import (
     attestation_presence,
+    attestation_presence_groupe,
+    attestation_presence_personnel,
     contrat_financier,
     contrat_financier_groupe,
+    contrat_financier_personnel,
     contrat_pedagogique,
     contrat_pedagogique_groupe,
+    contrat_pedagogique_personnel,
 )
 
 # PDF -> (module du template, Enum de mapping Grist)
@@ -26,6 +30,11 @@ TEMPLATES = {
     "financier": (contrat_financier, contrat_financier.PERSON_DATA),
     "pedagogique_groupe": (contrat_pedagogique_groupe, contrat_pedagogique_groupe.STUDENT_DATA),
     "financier_groupe": (contrat_financier_groupe, contrat_financier_groupe.STUDENT_DATA),
+    "attestation_groupe": (attestation_presence_groupe, attestation_presence_groupe.STUDENT_DATA),
+    # mobilités du personnel (démarche 156966) : page à venir
+    "pedagogique_personnel": (contrat_pedagogique_personnel, contrat_pedagogique_personnel.STUDENT_DATA),
+    "attestation_personnel": (attestation_presence_personnel, attestation_presence_personnel.STUDENT_DATA),
+    "financier_personnel": (contrat_financier_personnel, contrat_financier_personnel.PERSON_DATA),
 }
 
 # Document traité dans l'interface -> PDF produits ensemble
