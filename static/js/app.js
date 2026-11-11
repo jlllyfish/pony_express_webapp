@@ -845,7 +845,7 @@
   // Navigation entre les pages par le rail (#apprenants, #groupes)
   // --- Tableau de bord du consortium ---
 
-  const COULEURS_TYPES = { apprenants: "#6C38F5", groupes: "#D9772F", personnel: "#1E4FD8" };
+  const COULEURS_TYPES = { apprenants: "#1E1CC8", groupes: "#D1215D", personnel: "#DEAA87" };
   const nf = (n) => Number(n || 0).toLocaleString("fr-FR");
   const euros = (n) => `${nf(Math.round(n || 0))} €`;
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
@@ -1015,8 +1015,8 @@
     const c = 2 * Math.PI * r;
     document.getElementById("dash-anneau").innerHTML = `
       <svg width="190" height="190" viewBox="0 0 190 190" role="img" aria-label="Subvention consommée : ${taux} %">
-        <circle cx="95" cy="95" r="${r}" fill="none" stroke="#f1eeff" stroke-width="18"></circle>
-        <circle cx="95" cy="95" r="${r}" fill="none" stroke="#6c38f5" stroke-width="18" stroke-linecap="round"
+        <circle cx="95" cy="95" r="${r}" fill="none" stroke="#eeeefc" stroke-width="18"></circle>
+        <circle cx="95" cy="95" r="${r}" fill="none" stroke="#1e1cc8" stroke-width="18" stroke-linecap="round"
           stroke-dasharray="${((Math.min(taux, 100) / 100) * c).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 95 95)"></circle>
         <text x="95" y="96" text-anchor="middle" class="dash-anneau-val">${taux} %</text>
         <text x="95" y="118" text-anchor="middle" class="dash-donut-sous">de la subvention</text>
@@ -1035,8 +1035,8 @@
       </div>`;
     document.getElementById("dash-montants").innerHTML =
       ligne("Subvention accordée", sub.accordee) +
-      ligne("Montant engagé", sub.engagee, taux, "#6c38f5") +
-      (sub.versee != null ? ligne("Montant versé", sub.versee, pct(sub.versee, sub.accordee), "#1e4fd8") : "") +
+      ligne("Montant engagé", sub.engagee, taux, "#1e1cc8") +
+      (sub.versee != null ? ligne("Montant versé", sub.versee, pct(sub.versee, sub.accordee), "#d1215d") : "") +
       ligne("Reste à engager", Math.max(0, sub.accordee - sub.engagee)) +
       `<h3 class="dash-sous-titre">Autres montants</h3>` +
       ligneDetail("Montant PAMO", sub.pamo, sub.pamo_participants == null
@@ -1052,7 +1052,7 @@
   // --- Carte des pays d'accueil --------------------------------------------------
   // Fond de carte Europe pré-projeté (scripts/carte/generer.mjs), chargé une seule fois
   let fondCarte = null;
-  const PALETTE_CARTE = ["#ECE8FD", "#C9BCFB", "#A386F8", "#7E54F6", "#5424D6"];
+  const PALETTE_CARTE = ["#E6E6FA", "#BDBCF0", "#8E8CE2", "#5754D6", "#1E1CC8"];
   const GRIS_CARTE = "#E6E4EF";
 
   async function chargerFondCarte() {

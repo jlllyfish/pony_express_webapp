@@ -36,20 +36,21 @@
 
 :root {
   /* Palette Pony Express */
-  --violet: #6c38f5;
-  --violet-fonce: #5424d6;
-  --violet-pale: #f1eeff;
-  --bleu: #1e4fd8; /* coches, avatar complet, connexion OK */
-  --peche: #ffa766;
-  --lavande: #dcd8f8;
-  --bg: #f6f5fd;
+  --violet: #1e1cc8;
+  --violet-fonce: #16149a;
+  --violet-pale: #eeeefc;
+  --bleu: #1e1cc8; /* coches, avatar complet, connexion OK */
+  --framboise: #d1215d; /* accent Moow : « à traiter », traits de titre */
+  --framboise-pale: #fce8ef;
+  --lavande: #e4e2ec;
+  --bg: #f4f3f7;
   --surface: #ffffff;
   --ink: #1e1d33;
   --ink-soft: #6e6c8c;
-  --border: #ece9f8;
-  --accent-start: #6c38f5;
-  --accent-end: #ffa766;
-  --gradient: linear-gradient(90deg, var(--accent-start), var(--accent-end));
+  --border: #e7e5ee;
+  --accent-start: #1e1cc8;
+  --accent-end: #1e1cc8;
+  --gradient: var(--violet); /* filet bleu (plus de dégradé) */
   --radius-lg: 20px;
   --radius-full: 999px;
   --shadow-card:
@@ -239,7 +240,7 @@ a {
 }
 .field-refresh:hover:not(:disabled) {
   color: var(--accent-start);
-  border-color: #c9b9fc;
+  border-color: #c4c3f2;
 }
 .field-refresh:disabled {
   opacity: 0.6;
@@ -687,7 +688,7 @@ a {
 .pill-dark {
   background: var(--violet);
   color: #fff;
-  box-shadow: 0 8px 18px rgba(108, 56, 245, 0.28);
+  box-shadow: 0 8px 18px rgba(30, 28, 200, 0.28);
 }
 .pill-dark:disabled,
 .pill-disabled {
@@ -911,10 +912,10 @@ body {
 }
 .card:hover {
   transform: translateY(-4px);
-  border-color: #c9b9fc;
+  border-color: #c4c3f2;
   box-shadow:
-    0 2px 4px rgba(108, 56, 245, 0.08),
-    0 16px 36px rgba(108, 56, 245, 0.18);
+    0 2px 4px rgba(30, 28, 200, 0.08),
+    0 16px 36px rgba(30, 28, 200, 0.18);
 }
 @media (prefers-reduced-motion: reduce) {
   .card {
@@ -1022,15 +1023,15 @@ body.vue-dashboard .dashboard {
   gap: 20px;
   padding: 24px 30px;
   border-radius: var(--radius-lg);
-  background: #efebff;
-  border: 1px solid #e3dcff;
+  background: #eeeefc;
+  border: 1px solid #dddcf6;
 }
 .dash-hero h1 {
   margin: 0 0 6px;
   font-size: 26px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: #2c1a7a;
+  color: #191747;
 }
 .dash-hero p {
   margin: 0 0 10px;
@@ -1046,8 +1047,8 @@ body.vue-dashboard .dashboard {
   display: inline-block;
   padding: 4px 10px;
   border-radius: var(--radius-full);
-  background: #fff1e6;
-  color: #8a4a12;
+  background: #fce8ef;
+  color: #b01a4e;
   font-size: 11px;
   font-weight: 700;
 }
@@ -1085,8 +1086,8 @@ body.vue-dashboard .dashboard {
   color: var(--bleu);
 }
 .dash-kpi-icone--orange {
-  background: #fdefe3;
-  color: #b4601f;
+  background: #fce8ef;
+  color: #d1215d;
 }
 .dash-kpi-libelle {
   font-size: 12px;
@@ -1309,10 +1310,10 @@ body.vue-dashboard .dashboard {
 .dash-kpi:hover,
 .dash-montant:hover {
   transform: translateY(-3px);
-  border-color: #c9b9fc;
+  border-color: #c4c3f2;
   box-shadow:
-    0 2px 4px rgba(108, 56, 245, 0.08),
-    0 16px 36px rgba(108, 56, 245, 0.16);
+    0 2px 4px rgba(30, 28, 200, 0.08),
+    0 16px 36px rgba(30, 28, 200, 0.16);
 }
 @media (prefers-reduced-motion: reduce) {
   .dash-kpi,
@@ -1390,7 +1391,7 @@ body.vue-bientot .sans-bientot { display: none; }
   padding: 40px 24px;
 }
 .bientot-logo { width: 120px; height: auto; margin-bottom: 8px; }
-.bientot h1 { margin: 0; font-size: 24px; color: var(--violet-fonce, #2A1A6E); }
+.bientot h1 { margin: 0; font-size: 24px; color: var(--violet-fonce, #191747); }
 .bientot p { margin: 0; max-width: 460px; color: var(--ink-soft); font-size: 15px; }
 body.vue-bientot #btn-refresh { display: none; }
 
@@ -1428,7 +1429,7 @@ body.vue-bientot #btn-refresh { display: none; }
   width: 46px;
   height: 46px;
   object-fit: contain;
-  background: var(--violet-pale, #f1eeff);
+  background: var(--violet-pale, #eeeefc);
   border-radius: 12px;
   padding: 4px;
 }
@@ -1532,7 +1533,7 @@ body.vue-bientot #btn-refresh { display: none; }
   grid-column: 1 / -1;
   height: 6px;
   border-radius: 3px;
-  background: var(--violet-pale, #f1eeff);
+  background: var(--violet-pale, #eeeefc);
 }
 .carte-barre span {
   display: block;
@@ -1687,9 +1688,9 @@ body {
 .chip-a-traiter {
   padding: 3px 10px;
   border-radius: var(--radius-full);
-  background: #fff1e6;
-  border: 1px solid #ffd9bd;
-  color: #b35a14;
+  background: #fce8ef;
+  border: 1px solid #f6c3d5;
+  color: #b01a4e;
   font-size: 12px;
   font-weight: 700;
 }
@@ -1910,7 +1911,7 @@ body {
 .carte.is-selected,
 .ligne.is-selected {
   border-color: var(--violet);
-  box-shadow: 0 0 0 3px rgba(108, 56, 245, 0.14);
+  box-shadow: 0 0 0 3px rgba(30, 28, 200, 0.14);
 }
 .carte-coche {
   width: 18px;
@@ -2074,14 +2075,14 @@ body {
   margin-left: auto;
   padding: 3px 8px;
   border-radius: var(--radius-full);
-  background: #e8eeff;
+  background: #eeeefc;
   color: var(--bleu);
   font-size: 11px;
   font-weight: 700;
   font-style: normal;
 }
 .carte-degrade {
-  height: 3px;
+  height: 2px;
   margin-top: 12px;
   border-radius: 2px;
   background: var(--gradient);
@@ -2189,7 +2190,7 @@ body {
   font: inherit;
   font-size: 12.5px;
   font-weight: 600;
-  color: #cfc6ff;
+  color: #c4c3f2;
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
@@ -2217,7 +2218,7 @@ body {
   cursor: pointer;
 }
 .bouton-action:hover:not(:disabled) {
-  background: #7d4ff7;
+  background: #3533e0;
 }
 .bouton-action:disabled {
   background: transparent;
@@ -2362,7 +2363,7 @@ body.vue-dashboard .barre-filtres {
 .synthese-item.is-active {
   border-color: var(--violet);
   background: var(--violet-pale);
-  box-shadow: 0 0 0 2px rgba(108, 56, 245, 0.12);
+  box-shadow: 0 0 0 2px rgba(30, 28, 200, 0.12);
 }
 
 /* État des deux documents sur chaque carte / ligne */
@@ -2399,7 +2400,7 @@ body.vue-dashboard .barre-filtres {
 }
 .etat-doc.is-ok {
   border: 1px solid transparent;
-  background: #e8eeff;
+  background: #eeeefc;
   color: var(--bleu);
 }
 .etat-global.is-complet {
@@ -2475,16 +2476,16 @@ button.badge-statut:hover {
   color: var(--bleu);
 }
 .badge-statut--a-traiter {
-  background: #fff1e6;
-  border-color: #ffd9bd;
-  color: #b35a14;
+  background: #fce8ef;
+  border-color: #f6c3d5;
+  color: #b01a4e;
 }
 .badge-statut--a-traiter b {
-  color: #9a4b0f;
+  color: #b01a4e;
 }
 .badge-statut.is-active {
   border-color: var(--violet);
-  box-shadow: 0 0 0 2px rgba(108, 56, 245, 0.15);
+  box-shadow: 0 0 0 2px rgba(30, 28, 200, 0.15);
 }
 .connexions {
   padding-top: 0;
@@ -2539,7 +2540,7 @@ button.badge-statut:hover {
   display: none;
 }
 .onglet.is-active .onglet-compte {
-  background: #e8eeff;
+  background: #eeeefc;
   color: var(--bleu);
 }
 
@@ -2558,7 +2559,7 @@ button.badge-statut:hover {
 }
 .champ-recherche:focus-within {
   border-color: var(--violet);
-  box-shadow: 0 0 0 3px rgba(108, 56, 245, 0.12);
+  box-shadow: 0 0 0 3px rgba(30, 28, 200, 0.12);
 }
 .raccourci {
   padding: 2px 6px;
