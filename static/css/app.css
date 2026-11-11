@@ -3062,12 +3062,32 @@ body.vue-dashboard .barre-filtres {
     max-width: none;
   }
 
+  /* Pied de page : centré, texte qui s'enroule naturellement (plus de flex mot à mot) */
   .app-footer {
     border-radius: 0;
-    padding: 14px;
-    font-size: 12px;
+    padding: 16px 20px 18px;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+  }
+  .app-footer-legal {
+    justify-content: center;
+    gap: 12px;
+  }
+  .app-footer-legal a {
+    font-size: 12px;
+    padding-right: 12px;
+  }
+  .app-footer-license {
+    display: block;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .app-footer-heart {
+    display: inline-block;
+    vertical-align: -1px;
+    margin: 0 2px;
   }
   body {
     background: var(--surface); /* pas de bande lavande sous le pied de page */
