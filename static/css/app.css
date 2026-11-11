@@ -49,8 +49,8 @@
   --ink-soft: #6e6c8c;
   --border: #e7e5ee;
   --accent-start: #1e1cc8;
-  --accent-end: #1e1cc8;
-  --gradient: var(--violet); /* filet bleu (plus de dégradé) */
+  --accent-end: #dc649d;
+  --gradient: linear-gradient(90deg, var(--accent-start), var(--accent-end)); /* bleu Moow -> rose */
   --radius-lg: 20px;
   --radius-full: 999px;
   --shadow-card:
@@ -2697,7 +2697,7 @@ body.vue-dashboard .barre-filtres {
   position: absolute;
   inset: 0 0 auto;
   height: 4px;
-  background: var(--violet);
+  background: var(--gradient);
 }
 .carte:hover {
   transform: translateY(-3px);
