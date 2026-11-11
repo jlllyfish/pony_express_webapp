@@ -14,6 +14,8 @@
   const selected = new Set();
   // Filtre d'envoi du document de l'onglet actif : tous / envoye / a_envoyer
   let filterStatut = "tous";
+  // Filtre global (synthèse) : "" / "complets" / "incomplets"
+  let filterComplet = "";
   // Affichage : "cartes" ou "liste" (mémorisé par page dans le navigateur)
   let modeAffichage = "cartes";
   // Document traité par les boutons Générer / Envoyer
@@ -266,6 +268,9 @@
     const etab = el.filterEtab.value;
     if (etab && dossier.etablissement !== etab) return false;
 
+    const complet = dossier.envoye_pedagogique && dossier.envoye_financier;
+    if (filterComplet === "complets" && !complet) return false;
+    if (filterComplet === "incomplets" && complet) return false;
     const envoye = Boolean(dossier[DOCUMENTS[documentActif].champ]);
     if (filterStatut === "envoye" && !envoye) return false;
     if (filterStatut === "a_envoyer" && envoye) return false;
@@ -391,6 +396,49 @@
     };
   }
 
+  // Vue globale d'un dossier : les deux documents, quel que soit l'onglet actif
+  function etatGlobal(d) {
+    const complet = d.envoye_pedagogique && d.envoye_financier;
+    if (complet) {
+      return `<span class="etat-global is-complet" title="Tous les documents ont été envoyés">${svg(ICO.coche, 12)}Complet</span>`;
+    }
+    const pastille = (ok, court, long) =>
+      `<span class="etat-doc${ok ? " is-ok" : ""}" title="${long} : ${ok ? "envoyé" : "à envoyer"}">${ok ? svg(ICO.coche, 10) : ""}${court}</span>`;
+    return `<span class="etat-global">${pastille(d.envoye_pedagogique, "Péda", VUES[vue].libellePedagogique)}${pastille(d.envoye_financier, "Fin.", "Contrat financier")}</span>`;
+  }
+
+  // Synthèse de l'en-tête : avancement de chaque document et dossiers complets (cliquable = filtre)
+  function renderSynthese() {
+    const total = allDossiers.length;
+    const el_ = document.getElementById("synthese");
+    if (!total) {
+      el_.innerHTML = "";
+      return;
+    }
+    const peda = allDossiers.filter((d) => d.envoye_pedagogique).length;
+    const fin = allDossiers.filter((d) => d.envoye_financier).length;
+    const complets = allDossiers.filter((d) => d.envoye_pedagogique && d.envoye_financier).length;
+    const jauge = (n, libelle, cle) => `
+      <button type="button" class="synthese-item" data-onglet="${cle}" title="Afficher l'onglet ${libelle}">
+        <span class="synthese-libelle">${libelle}</span>
+        <span class="synthese-jauge"><span style="width:${(n / total) * 100}%"></span></span>
+        <b>${n}/${total}</b>
+      </button>`;
+    el_.innerHTML =
+      jauge(peda, VUES[vue].libellePedagogique, "pedagogique") +
+      jauge(fin, "Contrat financier", "financier") +
+      `<button type="button" class="synthese-item synthese-complets${filterComplet === "complets" ? " is-active" : ""}"
+               data-complet="complets" aria-pressed="${filterComplet === "complets"}"
+               title="${filterComplet === "complets" ? "Afficher tous les dossiers" : "N'afficher que les dossiers complets"}">
+         ${svg(ICO.coche, 12)}<span class="synthese-libelle">Complets</span><b>${complets}/${total}</b>
+       </button>` +
+      `<button type="button" class="synthese-item synthese-incomplets${filterComplet === "incomplets" ? " is-active" : ""}"
+               data-complet="incomplets" aria-pressed="${filterComplet === "incomplets"}"
+               title="${filterComplet === "incomplets" ? "Afficher tous les dossiers" : "N'afficher que les dossiers incomplets"}">
+         <span class="synthese-libelle">Incomplets</span><b>${total - complets}</b>
+       </button>`;
+  }
+
   function carteHtml(d) {
     const c = contenu(d);
     const sel = selected.has(String(d.dossier_number));
@@ -409,7 +457,10 @@
         <div class="carte-infos">${infos}</div>
         <div class="carte-docs">${documentsHtml(d)}</div>
         <div class="carte-degrade" aria-hidden="true"></div>
-        <p class="carte-etab">${svg(ICO.maison, 14)}${d.etablissement}</p>
+        <div class="carte-pied">
+          <p class="carte-etab">${svg(ICO.maison, 14)}${d.etablissement}</p>
+          ${etatGlobal(d)}
+        </div>
       </article>`;
   }
 
@@ -426,6 +477,7 @@
         <div class="ligne-col"><b>${c.infos[0].haut}</b><small>${c.infos[0].bas || ""}</small></div>
         <div class="ligne-col"><b>${c.resume || "—"}</b><small>${c.resumeBas || ""}</small></div>
         <div class="ligne-docs">${documentsHtml(d)}</div>
+        ${etatGlobal(d)}
       </article>`;
   }
 
@@ -435,6 +487,7 @@
     el.countTotal.textContent = allDossiers.length;
     const champ = DOCUMENTS[documentActif].champ;
     el.countATraiter.textContent = allDossiers.filter((d) => !d[champ]).length;
+    renderSynthese();
 
     el.cards.innerHTML = visible.length
       ? visible.map(modeAffichage === "liste" ? ligneHtml : carteHtml).join("")
@@ -763,6 +816,17 @@
     filterStatut = "tous";
     document.querySelectorAll('[data-filter="statut"]').forEach((b) =>
       b.classList.toggle("is-active", b.dataset.value === "tous"));
+  });
+  document.getElementById("synthese").addEventListener("click", (e) => {
+    const b = e.target.closest(".synthese-item");
+    if (!b) return;
+    if (b.dataset.complet) {
+      filterComplet = filterComplet === b.dataset.complet ? "" : b.dataset.complet;
+      render();
+      return;
+    }
+    // jauge d'un document : bascule sur son onglet
+    document.querySelector(`[data-filter="document"][data-value="${b.dataset.onglet}"]`)?.click();
   });
   el.btnTout.addEventListener("click", selectAllVisible);
   el.btnAucun.addEventListener("click", selectNone);
@@ -1116,6 +1180,7 @@
     el.countVisible.textContent = "0";
     el.countTotal.textContent = "0";
     el.countATraiter.textContent = "0";
+    filterComplet = "";
     el.search.value = "";
     el.filterEtab.value = "";
     allDossiers = [];

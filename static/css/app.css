@@ -2309,3 +2309,116 @@ body.vue-dashboard .barre-filtres {
   margin-top: 0;
   padding-right: 250px;
 }
+
+/* Vue globale : synthèse des envois dans l'en-tête */
+.synthese {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.synthese:empty {
+  display: none;
+}
+.synthese-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.synthese-item:hover {
+  border-color: var(--lavande);
+}
+.synthese-libelle {
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.synthese-item b {
+  font-weight: 800;
+}
+.synthese-jauge {
+  width: 80px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--violet-pale);
+  overflow: hidden;
+}
+.synthese-jauge span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--bleu);
+}
+.synthese-complets svg {
+  color: var(--bleu);
+}
+.synthese-item.is-active {
+  border-color: var(--violet);
+  background: var(--violet-pale);
+  box-shadow: 0 0 0 2px rgba(108, 56, 245, 0.12);
+}
+
+/* État des deux documents sur chaque carte / ligne */
+.carte-pied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+.carte-pied .carte-etab {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.etat-global {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.etat-doc {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  border: 1px dashed #c9c6dc;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.etat-doc.is-ok {
+  border: 1px solid transparent;
+  background: #e8eeff;
+  color: var(--bleu);
+}
+.etat-global.is-complet {
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  background: var(--bleu);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ligne {
+  grid-template-columns: 18px 32px minmax(180px, 1.2fr) 100px 140px 110px minmax(320px, 2fr) 96px;
+}
+.ligne > .etat-global {
+  justify-self: end;
+}
+@media (max-width: 1200px) {
+  .ligne {
+    grid-template-columns: 18px 32px minmax(160px, 1fr) 100px minmax(220px, 1.6fr) 96px;
+  }
+}
