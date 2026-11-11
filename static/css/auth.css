@@ -4,10 +4,10 @@
 @font-face { font-family: "Public Sans"; src: url("../fonts/PublicSans-ExtraBold.woff2") format("woff2"); font-weight: 800; font-display: swap; }
 
 :root {
-  --violet: #6c38f5;
-  --violet-fonce: #5424d6;
-  --lavande: #dcd8f8;
-  --fond: #f6f5fd;
+  --violet: #1e1cc8;
+  --violet-fonce: #16149a;
+  --lavande: #e4e2ec;
+  --fond: #f4f3f7;
   --ink: #1e1d33;
   --ink-soft: #6e6c8c;
 }
@@ -15,7 +15,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: #dedaf6;
+  background: #e4e2ec;
   font-family: "Public Sans", system-ui, sans-serif;
   color: var(--ink);
   display: grid;
@@ -32,7 +32,7 @@ body {
   overflow: hidden;
   display: grid;
   grid-template-columns: minmax(380px, 1fr) 1.35fr;
-  box-shadow: 0 30px 60px rgba(40, 26, 110, 0.12);
+  box-shadow: 0 30px 60px rgba(25, 23, 71, 0.12);
 }
 .gauche {
   display: flex;
@@ -57,7 +57,7 @@ body {
   background: #fff;
   border-radius: 6px;
   padding: 48px 44px 40px;
-  box-shadow: 14px 18px 34px rgba(84, 36, 214, 0.13);
+  box-shadow: 14px 18px 34px rgba(30, 28, 200, 0.13);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -103,16 +103,19 @@ button:focus-visible { outline: 2px solid var(--violet); outline-offset: 3px; }
   line-height: 1.4;
 }
 .message--erreur { background: #fde8e8; color: #9b1c1c; }
-.message--info { background: #ece7ff; color: var(--violet-fonce); }
+.message--info { background: #eeeefc; color: var(--violet-fonce); }
 .droite { display: flex; align-items: center; justify-content: center; padding: 80px 30px 60px 0; }
-.droite img { width: 50%; max-width: 410px; height: auto; }
-.moow { position: absolute; left: 44px; bottom: 34px; width: 120px; }
+.droite img { width: 100%; max-width: 499px; height: auto; } /* taille d'origine au maximum, jamais agrandie */
+.moow { position: absolute; right: 44px; top: 34px; width: 120px; }
+.pied { position: absolute; left: 44px; bottom: 30px; margin: 0; font-size: 13px; font-weight: 600; color: #6b7190; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 @media (max-width: 900px) {
   body { padding: 0; }
   .page { grid-template-columns: 1fr; border-radius: 0; min-height: 100vh; }
   .droite { display: none; }
+  .moow { right: 16px; top: 20px; width: 96px; }
+  .pied { left: 16px; right: 16px; bottom: 24px; }
   .gauche { padding: 40px 16px 120px; }
   .marque, .carte, .message { width: min(340px, 100%); }
   .marque h1 { font-size: 30px; }
