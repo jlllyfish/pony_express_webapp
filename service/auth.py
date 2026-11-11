@@ -13,7 +13,6 @@ Authentification : connexion, déconnexion, mot de passe oublié, gestion des co
   Sur Scalingo : scalingo --app <app> run flask --app app utilisateurs ajouter …
 """
 
-import getpass
 import os
 import secrets
 import time
@@ -186,9 +185,10 @@ def cli_utilisateurs():
 @cli_utilisateurs.command("ajouter")
 @click.argument("email")
 def cli_ajouter(email):
-    mdp = getpass.getpass("Mot de passe (12 caractères min.) : ")
-    if mdp != getpass.getpass("Confirmation : "):
-        raise click.ClickException("Les deux mots de passe ne correspondent pas.")
+    # click.prompt écrit sur la sortie standard : l'invite s'affiche aussi via `scalingo run`
+    # (getpass écrit sur /dev/tty, invisible depuis un terminal Windows)
+    mdp = click.prompt("Mot de passe (12 caractères min.)", hide_input=True,
+                       confirmation_prompt="Confirmation")
     try:
         comptes.creer(email, mdp)
     except ValueError as exc:
