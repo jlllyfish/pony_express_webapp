@@ -25,7 +25,7 @@ from service.personnel import list_personnel
 from service.sante import etat_de_sante
 from service.generation import TEMPLATES, generate_document, generate_pieces
 
-from service import auth, journal
+from service import auth, journal, securite
 from service import pdf as pdfs
 
 app = Flask(__name__)
@@ -42,6 +42,7 @@ if not app.secret_key:
         "SECRET_KEY absente : clé temporaire, les sessions seront perdues au redémarrage."
     )
 auth.init_app(app)
+securite.init_app(app)
 
 # Pas de base de données : le doc Grist est la source de vérité.
 # Ce cache mémoire évite de retaper Grist à chaque requête ; un restart le reconstruit.

@@ -62,6 +62,13 @@ Apps : `pony-express-pro-preprod` → `pony-express-pro` (et plus tard `-sup-…
 répond `{"status":"ok"}`, `/` redirige vers `/connexion`, la connexion fonctionne et un
 kit généré a les fontes Marianne.
 
+## Sécurité
+
+`service/securite.py` : redirection HTTP → HTTPS et HSTS, Content-Security-Policy (aucune ressource
+externe), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: same-origin`, pas de cache navigateur
+hors `/static`. Les logs ne contiennent que des numéros de dossier, jamais de nom d'apprenant.
+Audit des dépendances : `pip-audit -r <(poetry export --without-hashes)`.
+
 ## Comptes utilisateurs
 
 L'application exige une connexion. Pas d'inscription libre.
