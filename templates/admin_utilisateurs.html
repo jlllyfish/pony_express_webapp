@@ -61,14 +61,14 @@
             {% set soi = c.id == moi %}
             <tr class="{{ '' if c.actif else 'inactif' }}">
               <td>{{ c.email }}{% if soi %}<span class="moi">(vous)</span>{% endif %}</td>
-              <td><span class="badge {{ 'badge--admin' if c.admin else 'badge--user' }}">{{ 'Admin' if c.admin else 'Utilisateur' }}</span></td>
-              <td>
+              <td data-libelle="Rôle"><span class="badge {{ 'badge--admin' if c.admin else 'badge--user' }}">{{ 'Admin' if c.admin else 'Utilisateur' }}</span></td>
+              <td data-libelle="Statut">
                 {% if not c.actif %}<span class="badge badge--inactif">Désactivé</span>
                 {% elif not c.derniere_connexion %}<span class="badge badge--attente">Invité</span>
                 {% else %}<span class="badge badge--actif">Actif</span>{% endif %}
               </td>
-              <td>{% if c.totp_secret %}<span class="badge badge--actif">Activée</span>{% else %}<span class="badge badge--user">À configurer</span>{% endif %}</td>
-              <td>{{ c.derniere_connexion|paris }}</td>
+              <td data-libelle="2FA">{% if c.totp_secret %}<span class="badge badge--actif">Activée</span>{% else %}<span class="badge badge--user">À configurer</span>{% endif %}</td>
+              <td data-libelle="Dernière connexion">{{ c.derniere_connexion|paris }}</td>
               <td>
                 <div class="admin-actions">
                   {% macro action(nom, libelle, classe='', confirmation='', interdit=False) %}

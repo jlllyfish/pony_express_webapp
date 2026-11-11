@@ -53,11 +53,11 @@
             {% for e in entrees %}
             <tr>
               <td>{{ e.horodatage|paris }}</td>
-              <td>{{ e.utilisateur }}</td>
-              <td>{{ 'Envoi DN' if e.action == 'envoi' else 'Téléchargement' }}</td>
-              <td>{{ libelles.get(e.document, e.document or '—') }}</td>
-              <td>{{ e.dossier or '—' }}</td>
-              <td>
+              <td data-libelle="Par">{{ e.utilisateur }}</td>
+              <td data-libelle="Action">{{ 'Envoi DN' if e.action == 'envoi' else 'Téléchargement' }}</td>
+              <td data-libelle="Document">{{ libelles.get(e.document, e.document or '—') }}</td>
+              <td data-libelle="Dossier">{{ e.dossier or '—' }}</td>
+              <td data-libelle="Résultat">
                 <span class="badge {{ 'badge--ok' if e.resultat == 'ok' else 'badge--erreur' }}">{{ 'OK' if e.resultat == 'ok' else 'Erreur' }}</span>
               </td>
             </tr>

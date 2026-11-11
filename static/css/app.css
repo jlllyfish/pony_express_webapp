@@ -2866,3 +2866,229 @@ body.vue-dashboard .barre-filtres {
   color: #6b7190;
   box-shadow: none;
 }
+
+/* Zone de défilement à hauteur fixe : sans cela, les lignes de la grille (et de la liste)
+   se tassent sous la hauteur des cartes (overflow: hidden) et les coupent sur les écrans peu hauts */
+.card-grid {
+  grid-auto-rows: max-content;
+}
+.liste-dossiers > * {
+  flex-shrink: 0;
+}
+
+/* =====================================================================
+   Téléphone et petite tablette (≤ 820 px) — placé en dernier pour l'emporter
+   sur la grille de la refonte : une seule colonne, la page défile, le rail
+   devient une barre de navigation fixée en bas de l'écran.
+   ===================================================================== */
+@media (max-width: 820px) {
+  body {
+    display: block;
+    height: auto;
+    min-height: 100vh;
+    padding: 0 0 calc(64px + env(safe-area-inset-bottom));
+    overflow-x: hidden;
+  }
+
+  /* Rail -> barre d'onglets en bas */
+  .rail {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    height: calc(64px + env(safe-area-inset-bottom));
+    padding: 6px 8px env(safe-area-inset-bottom);
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    gap: 2px;
+    border-right: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    overflow: visible;
+    box-shadow: 0 -6px 20px rgba(30, 29, 51, 0.06);
+  }
+  .rail-logo,
+  .rail-tooltip {
+    display: none;
+  }
+  .rail-icon {
+    width: 44px;
+    height: 44px;
+  }
+  .rail-admin,
+  .rail-deconnexion,
+  .rail-admin + .rail-deconnexion {
+    margin: 0;
+  }
+
+  /* Contenu : la page défile normalement */
+  .content {
+    display: block;
+    overflow: visible;
+    border-radius: 0;
+    padding: 0 14px;
+    min-height: 0;
+  }
+  .content > .dashboard,
+  .content > .bientot {
+    overflow: visible;
+  }
+  .barre-app {
+    margin: 0 -14px 14px;
+    padding: 10px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: var(--surface);
+  }
+  .entete-page h1 {
+    font-size: 22px;
+  }
+  .entete-moow {
+    display: none;
+  }
+
+  /* Onglets de documents : défilement horizontal plutôt que retour à la ligne */
+  .onglets {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+  }
+  .onglet {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-left: 8px;
+    padding-right: 8px;
+    gap: 6px;
+    font-size: 13px;
+    text-align: center;
+  }
+  .onglet small {
+    display: none; /* « + attestation » : gain de place */
+  }
+
+  /* Filtres empilés */
+  .barre-filtres {
+    padding: 10px;
+  }
+  .champ-recherche,
+  .barre-filtres .champ-select {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+  }
+
+  /* Dossiers : une carte par ligne, la page défile (plus de zone interne) */
+  #cards {
+    overflow: visible;
+    margin: 0;
+    padding: 14px 0 110px;
+  }
+
+  /* Vue liste : coche, nom et pays sur une ligne, documents en dessous */
+  .ligne {
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    gap: 6px 12px;
+    padding: 12px 14px;
+  }
+  .ligne .carte-avatar,
+  .ligne .ligne-col {
+    display: none;
+  }
+  .ligne-docs,
+  .ligne > .etat-global {
+    grid-column: 2 / -1;
+  }
+  .ligne-docs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ligne > .etat-global {
+    justify-self: start;
+  }
+
+  /* Barre d'actions de sélection : au-dessus de la barre de navigation */
+  .barre-actions {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    transform: none;
+    max-width: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+    padding: 12px;
+    white-space: normal;
+    animation-name: barre-entree-mobile;
+  }
+  .barre-actions[hidden] {
+    display: none;
+  }
+  .barre-actions-sel {
+    grid-column: 1 / -1;
+  }
+  .barre-actions-sep {
+    display: none;
+  }
+  .lien-action {
+    justify-self: start;
+  }
+  .bouton-action {
+    justify-content: center;
+    padding: 10px;
+    font-size: 13px;
+    line-height: 1.25;
+    text-align: center;
+  }
+  .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); /* 1 colonne sur téléphone, 2 sur tablette */
+  }
+
+  /* Toasts au-dessus de la barre de navigation, sur toute la largeur */
+  .toast-accueil {
+    top: auto;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    left: 12px;
+    right: 12px;
+    max-width: none;
+  }
+  .toast {
+    right: 12px;
+    left: 12px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    max-width: none;
+  }
+
+  .app-footer {
+    border-radius: 0;
+    padding: 14px;
+    font-size: 12px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  body {
+    background: var(--surface); /* pas de bande lavande sous le pied de page */
+  }
+
+  /* Tableau de bord : bandeau en colonne, logo Moow en haut */
+  .dash-hero {
+    flex-direction: column-reverse;
+    align-items: flex-start;
+    padding: 18px;
+    gap: 10px;
+  }
+  .dash-hero h1,
+  .dash-hero h2 {
+    font-size: 22px;
+  }
+  .dash-hero-logo {
+    width: 110px;
+  }
+}
+
+@keyframes barre-entree-mobile {
+  from { opacity: 0; transform: translateY(12px); }
+}
