@@ -1399,6 +1399,12 @@ body.vue-bientot #btn-refresh { display: none; }
 .rail-deconnexion {
   margin: auto 0 24px;
 }
+.rail-admin {
+  margin-top: auto;
+}
+.rail-admin + .rail-deconnexion {
+  margin-top: 0;
+}
 .rail-deconnexion button.rail-icon {
   border: 0;
   background: transparent;

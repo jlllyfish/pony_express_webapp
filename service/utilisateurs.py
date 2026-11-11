@@ -12,14 +12,17 @@ SQLite dans instance/pony_express.db.
 
 import hashlib
 import os
+import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
-from sqlalchemy import Boolean, Column, DateTime, Integer, MetaData, String, Table, create_engine, func, select
+from sqlalchemy import (Boolean, Column, DateTime, Integer, MetaData, String, Table, create_engine, false, func,
+                        inspect, select, text)
 from werkzeug.security import check_password_hash, generate_password_hash
 
 DUREE_LIEN_SECONDES = 3600
+DUREE_INVITATION_SECONDES = 7 * 24 * 3600
 LONGUEUR_MIN_MDP = 12
 
 metadata = MetaData()
@@ -32,6 +35,7 @@ utilisateurs = Table(
     Column("actif", Boolean, nullable=False, default=True),
     Column("cree_le", DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)),
     Column("derniere_connexion", DateTime(timezone=True)),
+    Column("admin", Boolean, nullable=False, default=False, server_default=false()),
 )
 
 _engine = None
@@ -55,7 +59,21 @@ def engine():
     if _engine is None:
         _engine = create_engine(_url_base(), pool_pre_ping=True)
         metadata.create_all(_engine)  # crée la table au premier lancement
+        _migrer(_engine)
     return _engine
+
+
+def _migrer(eng) -> None:
+    """Mises à jour de schéma sans outil de migration (table créée avant l'ajout de la colonne)."""
+    colonnes = {c["name"] for c in inspect(eng).get_columns("utilisateurs")}
+    with eng.begin() as cx:
+        if "admin" not in colonnes:
+            cx.execute(text("ALTER TABLE utilisateurs ADD COLUMN admin BOOLEAN NOT NULL DEFAULT FALSE"))
+        # Toujours au moins un administrateur : le plus ancien compte, s'il n'y en a aucun
+        if cx.execute(select(func.count()).where(utilisateurs.c.admin.is_(True))).scalar() == 0:
+            premier = cx.execute(select(func.min(utilisateurs.c.id))).scalar()
+            if premier is not None:
+                cx.execute(utilisateurs.update().where(utilisateurs.c.id == premier).values(admin=True))
 
 
 def normaliser(email: str) -> str:
@@ -95,7 +113,7 @@ def lister() -> list[dict]:
         return [dict(l) for l in cx.execute(select(utilisateurs).order_by(utilisateurs.c.email)).mappings()]
 
 
-def creer(email: str, mot_de_passe: str) -> None:
+def creer(email: str, mot_de_passe: str, admin: bool = False) -> dict:
     erreur = verifier_mot_de_passe_robuste(mot_de_passe)
     if erreur:
         raise ValueError(erreur)
@@ -105,7 +123,19 @@ def creer(email: str, mot_de_passe: str) -> None:
         raise ValueError("Un compte existe déjà pour cette adresse.")
     with engine().begin() as cx:
         cx.execute(utilisateurs.insert().values(
-            email=normaliser(email), mot_de_passe=generate_password_hash(mot_de_passe), actif=True))
+            email=normaliser(email), mot_de_passe=generate_password_hash(mot_de_passe), actif=True, admin=admin))
+    return trouver(email)
+
+
+def creer_invite(email: str, admin: bool = False) -> dict:
+    """Compte au mot de passe aléatoire inconnu : la personne choisit le sien via le lien d'invitation."""
+    return creer(email, secrets.token_urlsafe(32), admin=admin)
+
+
+def definir_admin(email: str, admin: bool) -> bool:
+    with engine().begin() as cx:
+        r = cx.execute(utilisateurs.update().where(utilisateurs.c.email == normaliser(email)).values(admin=admin))
+    return r.rowcount > 0
 
 
 def changer_mot_de_passe(uid: int, mot_de_passe: str) -> None:
@@ -142,22 +172,25 @@ def authentifier(email: str, mot_de_passe: str) -> dict | None:
 
 # --- Lien de réinitialisation ---------------------------------------------------
 
-def _serialiseur(secret: str) -> URLSafeTimedSerializer:
-    return URLSafeTimedSerializer(secret, salt="reinitialisation-mot-de-passe")
+def _serialiseur(secret: str, usage: str = "reinitialisation") -> URLSafeTimedSerializer:
+    # sels distincts : un lien de réinitialisation (1 h) ne peut pas servir d'invitation (7 jours)
+    sel = "reinitialisation-mot-de-passe" if usage == "reinitialisation" else f"{usage}-mot-de-passe"
+    return URLSafeTimedSerializer(secret, salt=sel)
 
 
 def _empreinte(u: dict) -> str:
     return hashlib.sha256(u["mot_de_passe"].encode()).hexdigest()[:16]
 
 
-def jeton_reinitialisation(u: dict, secret: str) -> str:
-    return _serialiseur(secret).dumps({"id": u["id"], "e": _empreinte(u)})
+def jeton_reinitialisation(u: dict, secret: str, usage: str = "reinitialisation") -> str:
+    return _serialiseur(secret, usage).dumps({"id": u["id"], "e": _empreinte(u)})
 
 
-def utilisateur_du_jeton(jeton: str, secret: str) -> dict | None:
+def utilisateur_du_jeton(jeton: str, secret: str, usage: str = "reinitialisation") -> dict | None:
     """Utilisateur si le lien est valide, non expiré et pas encore utilisé."""
+    duree = DUREE_INVITATION_SECONDES if usage == "invitation" else DUREE_LIEN_SECONDES
     try:
-        data = _serialiseur(secret).loads(jeton, max_age=DUREE_LIEN_SECONDES)
+        data = _serialiseur(secret, usage).loads(jeton, max_age=duree)
     except (BadSignature, SignatureExpired):
         return None
     u = trouver_par_id(data.get("id"))

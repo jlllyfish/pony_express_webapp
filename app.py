@@ -68,6 +68,7 @@ def index():
     return render_template(
         "index.html",
         utilisateur=g.utilisateur["email"],
+        admin=bool(g.utilisateur.get("admin")),
         accueil=auth.accueil_a_afficher(),
     )
 

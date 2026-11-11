@@ -6,7 +6,8 @@ Authentification : connexion, déconnexion, mot de passe oublié, gestion des co
   répond 401 ; une page redirige vers /connexion.
 - Formulaires protégés par un jeton CSRF stocké en session.
 - 5 essais de connexion ratés par adresse et par IP en 15 min, puis blocage.
-- Comptes gérés en ligne de commande (pas d'inscription libre) :
+- Pas d'inscription libre. Les administrateurs gèrent les comptes sur /admin/utilisateurs
+  (invitation par lien valable 7 jours, activation, rôle, suppression), ou en ligne de commande :
       flask --app app utilisateurs ajouter prenom.nom@exemple.fr
       flask --app app utilisateurs lister
       flask --app app utilisateurs desactiver / activer / supprimer <email>
@@ -28,7 +29,8 @@ from service import courriel, utilisateurs as comptes
 
 bp = Blueprint("auth", __name__)
 
-PAGES_PUBLIQUES = {"auth.connexion", "auth.mot_de_passe_oublie", "auth.reinitialiser", "static", "favicon", "health"}
+PAGES_PUBLIQUES = {"auth.connexion", "auth.mot_de_passe_oublie", "auth.reinitialiser", "auth.bienvenue",
+                   "static", "favicon", "health"}
 ESSAIS_MAX, FENETRE_ESSAIS = 5, 15 * 60
 _essais: dict = defaultdict(deque)
 
@@ -101,7 +103,7 @@ def _creer_premier_compte():
     email = os.environ.get("PREMIER_COMPTE", "").strip()
     if not email or comptes.lister():
         return
-    comptes.creer(email, secrets.token_urlsafe(32))
+    comptes.creer_invite(email, admin=True)
     logging.getLogger(__name__).warning(
         "Premier compte créé : %s. Utilisez « Mot de passe oublié » pour définir le mot de passe, "
         "puis supprimez la variable PREMIER_COMPTE.", comptes.normaliser(email)
@@ -166,10 +168,21 @@ def mot_de_passe_oublie():
 
 @bp.route("/reinitialiser/<jeton>", methods=["GET", "POST"])
 def reinitialiser(jeton):
-    u = comptes.utilisateur_du_jeton(jeton, current_app.secret_key)
+    return _choisir_mot_de_passe(jeton, "reinitialisation")
+
+
+@bp.route("/bienvenue/<jeton>", methods=["GET", "POST"])
+def bienvenue(jeton):
+    """Lien d'invitation (7 jours) : la personne invitée choisit son premier mot de passe."""
+    return _choisir_mot_de_passe(jeton, "invitation")
+
+
+def _choisir_mot_de_passe(jeton: str, usage: str):
+    u = comptes.utilisateur_du_jeton(jeton, current_app.secret_key, usage)
     if not u:
         flash("Ce lien n'est plus valide : demandez-en un nouveau.", "erreur")
         return redirect(url_for("auth.mot_de_passe_oublie"))
+    invitation = usage == "invitation"
     if request.method == "POST":
         _verifier_csrf()
         mdp, confirmation = request.form.get("mot_de_passe", ""), request.form.get("confirmation", "")
@@ -177,11 +190,90 @@ def reinitialiser(jeton):
             "Les deux mots de passe ne correspondent pas." if mdp != confirmation else None)
         if erreur:
             flash(erreur, "erreur")
-            return render_template("reinitialiser.html", jeton=jeton), 400
+            return render_template("reinitialiser.html", invitation=invitation, email=u["email"]), 400
         comptes.changer_mot_de_passe(u["id"], mdp)
-        flash("Mot de passe modifié : vous pouvez vous connecter.", "info")
+        flash("Mot de passe enregistré : vous pouvez vous connecter.", "info")
         return redirect(url_for("auth.connexion"))
-    return render_template("reinitialiser.html", jeton=jeton)
+    return render_template("reinitialiser.html", invitation=invitation, email=u["email"])
+
+
+# --- Administration des comptes -------------------------------------------------
+
+def _admin_requis():
+    if not (g.get("utilisateur") and g.utilisateur.get("admin")):
+        abort(403)
+
+
+def _envoyer_invitation(u: dict) -> dict:
+    """Crée un lien d'invitation (7 jours), l'envoie par e-mail si SMTP est configuré,
+    et le retourne pour affichage unique à l'administrateur (à transmettre soi-même sinon)."""
+    lien = url_for("auth.bienvenue",
+                   jeton=comptes.jeton_reinitialisation(u, current_app.secret_key, "invitation"), _external=True)
+    envoye = bool(os.environ.get("SMTP_HOST"))
+    try:
+        courriel.envoyer(
+            u["email"],
+            "Pony Express : votre accès",
+            f"Bonjour {comptes.prenom_depuis_email(u['email'])},\n\n"
+            f"Un compte Pony Express vient d'être créé pour vous. Pour choisir votre mot de passe, "
+            f"ouvrez ce lien (valable 7 jours) :\n{lien}\n",
+        )
+    except Exception:  # noqa: BLE001 - SMTP en panne : l'administrateur transmet le lien lui-même
+        logging.getLogger(__name__).exception("Envoi de l'invitation impossible")
+        envoye = False
+    return {"email": u["email"], "lien": lien, "envoye": envoye}
+
+
+@bp.get("/admin/utilisateurs")
+def admin_utilisateurs():
+    _admin_requis()
+    return render_template(
+        "admin_utilisateurs.html",
+        comptes=comptes.lister(),
+        moi=g.utilisateur["id"],
+        invitation=session.pop("invitation", None),
+    )
+
+
+@bp.post("/admin/utilisateurs")
+def admin_ajouter():
+    _admin_requis()
+    _verifier_csrf()
+    try:
+        u = comptes.creer_invite(request.form.get("email", ""), admin=request.form.get("admin") == "1")
+    except ValueError as exc:
+        flash(str(exc), "erreur")
+        return redirect(url_for("auth.admin_utilisateurs"))
+    session["invitation"] = _envoyer_invitation(u)
+    flash(f"Compte créé : {u['email']}", "info")
+    return redirect(url_for("auth.admin_utilisateurs"))
+
+
+@bp.post("/admin/utilisateurs/<int:uid>/<action>")
+def admin_action(uid, action):
+    _admin_requis()
+    _verifier_csrf()
+    u = comptes.trouver_par_id(uid)
+    if not u:
+        abort(404)
+    if uid == g.utilisateur["id"] and action in {"desactiver", "supprimer", "retirer-admin"}:
+        flash("Vous ne pouvez pas faire cela sur votre propre compte.", "erreur")
+        return redirect(url_for("auth.admin_utilisateurs"))
+    if action == "lien":
+        session["invitation"] = _envoyer_invitation(u)
+        flash(f"Nouveau lien pour {u['email']} (l'ancien reste valable jusqu'au changement de mot de passe).", "info")
+    elif action in {"activer", "desactiver"}:
+        comptes.activer(u["email"], action == "activer")
+        flash(f"Compte {'activé' if action == 'activer' else 'désactivé'} : {u['email']}", "info")
+    elif action in {"admin", "retirer-admin"}:
+        comptes.definir_admin(u["email"], action == "admin")
+        flash(f"{u['email']} : {'administrateur' if action == 'admin' else 'utilisateur'}", "info")
+    elif action == "supprimer":
+        comptes.supprimer(u["email"])
+        flash(f"Compte supprimé : {u['email']}", "info")
+    else:
+        abort(404)
+    return redirect(url_for("auth.admin_utilisateurs"))
 
 
 def accueil_a_afficher() -> str | None:
@@ -200,13 +292,14 @@ def cli_utilisateurs():
 
 @cli_utilisateurs.command("ajouter")
 @click.argument("email")
-def cli_ajouter(email):
+@click.option("--admin", is_flag=True, help="Donne accès à la page de gestion des comptes.")
+def cli_ajouter(email, admin):
     # click.prompt écrit sur la sortie standard : l'invite s'affiche aussi via `scalingo run`
     # (getpass écrit sur /dev/tty, invisible depuis un terminal Windows)
     mdp = click.prompt("Mot de passe (12 caractères min.)", hide_input=True,
                        confirmation_prompt="Confirmation")
     try:
-        comptes.creer(email, mdp)
+        comptes.creer(email, mdp, admin=admin)
     except ValueError as exc:
         raise click.ClickException(str(exc))
     click.echo(f"Compte créé : {comptes.normaliser(email)}")
@@ -215,9 +308,17 @@ def cli_ajouter(email):
 @cli_utilisateurs.command("lister")
 def cli_lister():
     for u in comptes.lister():
-        etat = "actif" if u["actif"] else "désactivé"
+        etat = ("actif" if u["actif"] else "désactivé") + (" · admin" if u["admin"] else "")
         derniere = u["derniere_connexion"].strftime("%d/%m/%Y %H:%M") if u["derniere_connexion"] else "jamais"
-        click.echo(f"{u['email']:<45} {etat:<10} dernière connexion : {derniere}")
+        click.echo(f"{u['email']:<45} {etat:<18} dernière connexion : {derniere}")
+
+
+@cli_utilisateurs.command("admin")
+@click.argument("email")
+@click.option("--retirer", is_flag=True, help="Retire le rôle administrateur.")
+def cli_admin(email, retirer):
+    ok = comptes.definir_admin(email, not retirer)
+    click.echo(("Rôle administrateur " + ("retiré." if retirer else "donné.")) if ok else "Compte introuvable.")
 
 
 @cli_utilisateurs.command("desactiver")

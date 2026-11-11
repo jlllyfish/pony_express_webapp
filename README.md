@@ -64,7 +64,14 @@ kit généré a les fontes Marianne.
 
 ## Comptes utilisateurs
 
-L'application exige une connexion. Pas d'inscription libre : les comptes se créent en ligne de commande.
+L'application exige une connexion. Pas d'inscription libre.
+
+**Page « Utilisateurs »** (icône dans le rail, visible des administrateurs) : inviter une personne
+(compte créé + lien valable 7 jours pour choisir son mot de passe, envoyé par e-mail si SMTP est
+configuré, sinon affiché une fois pour être transmis), renvoyer un lien, activer / désactiver,
+donner / retirer le rôle admin, supprimer. Le plus ancien compte devient admin s'il n'y en a aucun.
+
+En ligne de commande (`--admin` pour créer un administrateur, `utilisateurs admin <email>` pour promouvoir) :
 
 ```bash
 poetry run flask --app app utilisateurs ajouter prenom.nom@exemple.fr   # demande le mot de passe (12 caractères min.)
