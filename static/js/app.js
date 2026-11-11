@@ -363,7 +363,7 @@
 
   function lienDossier(d) {
     return `<a class="lien-dossier" href="https://demarche.numerique.gouv.fr/procedures/${d.demarche || 128447}/a-suivre/dossiers/${d.dossier_number}"
-              target="_blank" rel="noopener noreferrer">Dossier ${d.dossier_number}</a>`;
+              target="_blank" rel="noopener noreferrer">Dossier <span class="num-dossier">${d.dossier_number}</span></a>`;
   }
 
   // Données affichées selon la page : titre, avatar, deux paires d'infos
@@ -430,21 +430,21 @@
   function carteHtml(d) {
     const c = contenu(d);
     const sel = selected.has(String(d.dossier_number));
-    const infos = c.infos.map((i) => `<div class="info">${svg(i.ic)}<div><b>${i.haut}</b>${i.bas ? `<small>${i.bas}</small>` : ""}</div></div>`).join("");
+    const infos = c.infos.map((i) => `<div class="info${i.ic === ICO.avion ? " info--trajet" : ""}">${svg(i.ic)}<div><b>${i.haut}</b>${i.bas ? `<small>${i.bas}</small>` : ""}</div></div>`).join("");
     return `
       <article class="carte${sel ? " is-selected" : ""}" data-dossier="${d.dossier_number}">
-        <input class="carte-coche" type="checkbox" data-dossier="${d.dossier_number}" ${sel ? "checked" : ""}
-               aria-label="Sélectionner le dossier ${d.dossier_number}">
         <div class="carte-entete">
+          <input class="carte-coche" type="checkbox" data-dossier="${d.dossier_number}" ${sel ? "checked" : ""}
+                 aria-label="Sélectionner le dossier ${d.dossier_number}">
           <span class="carte-avatar" aria-hidden="true">${c.avatar}</span>
           <div class="carte-nom">
             <h3>${c.titre}</h3>
-            <p class="carte-sous-titre">${lienDossier(d)}<span class="carte-pays" title="${d.pays_accueil || ""}">${d.pays_accueil || "Pays ?"}</span></p>
+            <p class="carte-sous-titre">${lienDossier(d)}</p>
           </div>
+          <span class="carte-pays" title="${d.pays_accueil || ""}">${d.pays_accueil || "Pays ?"}</span>
         </div>
         <div class="carte-infos">${infos}</div>
         <div class="carte-docs">${documentsHtml(d)}</div>
-        <div class="carte-degrade" aria-hidden="true"></div>
         <div class="carte-pied">
           <p class="carte-etab">${svg(ICO.maison, 14)}${d.etablissement}</p>
           ${etatGlobal(d)}

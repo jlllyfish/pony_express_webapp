@@ -43,7 +43,7 @@
   --framboise: #d1215d; /* accent Moow : « à traiter », traits de titre */
   --framboise-pale: #fce8ef;
   --lavande: #e4e2ec;
-  --bg: #f4f3f7;
+  --bg: #f8f9fd;
   --surface: #ffffff;
   --ink: #1e1d33;
   --ink-soft: #6e6c8c;
@@ -1880,7 +1880,7 @@ body {
   padding: 16px 32px 96px;
 }
 .card-grid {
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 16px;
   align-content: start;
 }
@@ -2675,3 +2675,158 @@ body.vue-dashboard .barre-filtres {
     display: none;
   }
 }
+
+/* =====================================================================
+   Carte v2 : bandeau bleu, dates encadrées, pied teinté, états survol / sélection
+   ===================================================================== */
+:root {
+  --carte-bord: #e2e5ef;
+  --fond-doux: #f8f9fd;
+  --fond-pied: #f0f2fa;
+}
+.carte {
+  overflow: hidden;
+  padding: 20px 18px 0;
+  border: 1px solid var(--carte-bord);
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(25, 23, 71, 0.04);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+}
+.carte::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--violet);
+}
+.carte:hover {
+  transform: translateY(-3px);
+  border-color: #8f8ee3;
+  background: var(--fond-doux);
+  box-shadow: 0 10px 24px rgba(30, 28, 200, 0.12);
+}
+.carte.is-selected {
+  border: 2px solid var(--violet);
+  padding: 19px 17px 0; /* compense la bordure plus épaisse */
+  box-shadow: 0 8px 22px rgba(30, 28, 200, 0.18);
+}
+.carte.is-selected:hover {
+  box-shadow: 0 12px 28px rgba(30, 28, 200, 0.22);
+}
+.carte > .carte-coche { position: static; }
+.carte-entete {
+  align-items: flex-start;
+  gap: 12px;
+  padding: 0 0 14px;
+  border-bottom: 0;
+}
+.carte-entete .carte-coche {
+  margin-top: 13px;
+}
+.carte .carte-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--violet-fonce);
+  font-size: 15px;
+  box-shadow: 0 4px 10px rgba(22, 20, 154, 0.25);
+}
+.carte .carte-nom h3 {
+  margin-top: 2px;
+  color: var(--encre, #191747);
+}
+.num-dossier {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-weight: 700;
+  color: var(--ink);
+}
+.carte .carte-pays {
+  flex-shrink: 0;
+  margin-top: 2px;
+  padding: 4px 12px;
+  border: 1px solid #f6c3d5;
+  background: var(--framboise-pale);
+  color: var(--framboise);
+  font-size: 12px;
+}
+.carte-infos {
+  padding: 12px 14px;
+  border: 1px solid var(--carte-bord);
+  border-radius: 14px;
+  background: var(--fond-doux);
+}
+.carte:hover .carte-infos {
+  background: #fff;
+}
+.info b {
+  color: var(--encre, #191747);
+}
+.info--trajet svg {
+  color: var(--framboise);
+}
+.info--trajet b {
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+.info--trajet small {
+  font-weight: 700;
+  color: var(--encre, #191747);
+  font-size: 13px;
+}
+.carte .carte-docs {
+  gap: 0;
+  padding: 8px 0 12px;
+}
+.carte .doc {
+  padding: 9px 0;
+  font-size: 14px;
+}
+.carte .doc + .doc {
+  border-top: 1px solid #eef0f6;
+}
+.carte .doc-ic {
+  width: 22px;
+  height: 22px;
+}
+.carte .doc.is-envoye .doc-ic {
+  background: var(--violet-fonce);
+}
+.carte .doc-envoye {
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: #eceef6;
+  color: var(--encre, #191747);
+  font-size: 11.5px;
+}
+.carte .carte-pied {
+  margin: 0 -18px;
+  padding: 11px 18px;
+  border-top: 1px solid var(--carte-bord);
+  background: var(--fond-pied);
+}
+.carte.is-selected .carte-pied {
+  margin: 0 -17px;
+  padding: 11px 17px 11px;
+}
+.carte .carte-etab {
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b7190;
+}
+.carte .etat-global.is-complet {
+  padding: 4px 11px;
+  background: var(--violet-fonce);
+  font-size: 12px;
+}
+
+/* Filtres sélectionnés plus visibles : option active pleine */
+.filtre-statut .segmented-option.is-active,
+.bascule-vue button.is-active {
+  background: var(--violet-fonce);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(22, 20, 154, 0.25);
+}
+.carte .lien-dossier { white-space: nowrap; }
+.carte .info small { overflow-wrap: anywhere; }
