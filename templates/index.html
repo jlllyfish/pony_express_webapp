@@ -14,7 +14,6 @@
   </head>
   <body>
     <nav class="rail" aria-label="Navigation principale">
-      <img class="rail-logo" src="{{ url_for('static', filename='img/logo.svg') }}" alt="Pony Express" title="Pony Express" />
       <div class="rail-icon-wrap">
         <a class="rail-icon rail-icon--active" href="#apprenants" data-view="apprenants" aria-current="page">
           <svg
@@ -140,6 +139,31 @@
 
 
     <main class="content">
+      <div class="barre-app">
+        <a class="barre-app-nom" href="#apprenants">
+          <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" />Pony Express
+        </a>
+        <div class="barre-app-droite">
+          <div class="connexions" aria-live="polite">
+            <button id="sante-grist" class="sante-item" type="button" data-etat="test" title="Test de connexion en cours…">
+              <span class="sante-dot" aria-hidden="true"></span>Grist
+            </button>
+            <button id="sante-dn" class="sante-item" type="button" data-etat="test" title="Test de connexion en cours…">
+              <span class="sante-dot" aria-hidden="true"></span>DN
+            </button>
+            <span class="bouton-icone-wrap">
+              <button id="btn-refresh" class="bouton-icone" type="button" aria-label="Rafraîchir depuis Grist"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+              <span class="infobulle-bas">Rafraîchir depuis Grist</span>
+            </span>
+            <span class="bouton-icone-wrap tuiles-only">
+              <button id="btn-sync-dn" class="bouton-icone" type="button" aria-label="Vérifier avec DN"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></button>
+              <span class="infobulle-bas">Vérifier avec DN</span>
+            </span>
+          </div>
+          <span class="barre-app-sep" aria-hidden="true"></span>
+          <img class="barre-app-moow" src="{{ url_for('static', filename='img/logo-moow.svg') }}" alt="Moow by ENSFEA" />
+        </div>
+      </div>
       <header class="entete-page">
         <div class="entete-titre tuiles-only">
           <h1 id="page-title">Mobilités Apprenant</h1>
@@ -154,22 +178,6 @@
               <b id="count-a-traiter">0</b>&nbsp;à traiter
             </button>
           </div>
-        </div>
-        <div class="connexions" aria-live="polite">
-          <button id="sante-grist" class="sante-item" type="button" data-etat="test" title="Test de connexion en cours…">
-            <span class="sante-dot" aria-hidden="true"></span>Grist
-          </button>
-          <button id="sante-dn" class="sante-item" type="button" data-etat="test" title="Test de connexion en cours…">
-            <span class="sante-dot" aria-hidden="true"></span>DN
-          </button>
-          <span class="bouton-icone-wrap">
-            <button id="btn-refresh" class="bouton-icone" type="button" aria-label="Rafraîchir depuis Grist"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
-            <span class="infobulle-bas">Rafraîchir depuis Grist</span>
-          </span>
-          <span class="bouton-icone-wrap tuiles-only">
-            <button id="btn-sync-dn" class="bouton-icone" type="button" aria-label="Vérifier avec DN"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></button>
-            <span class="infobulle-bas">Vérifier avec DN</span>
-          </span>
         </div>
       </header>
 
