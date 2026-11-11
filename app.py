@@ -1,4 +1,6 @@
+import io
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -24,6 +26,7 @@ from service.sante import etat_de_sante
 from service.generation import TEMPLATES, generate_document, generate_pieces
 
 from service import auth, journal
+from service import pdf as pdfs
 
 app = Flask(__name__)
 # Derrière le routeur Scalingo : HTTPS et nom d'hôte réels (liens de réinitialisation en https://)
@@ -169,6 +172,8 @@ def api_generate():
         results = generate_pieces(document, dossier_numbers)
     except Exception as exc:  # noqa: BLE001 - on renvoie l'erreur telle quelle pour debug en V1
         return jsonify({"error": str(exc)}), 500
+    # Vérification seulement : les PDF sont regénérés (données fraîches) au téléchargement et à l'envoi
+    pdfs.supprimer(*(c for chemins in results.values() for c in chemins.values()))
     return jsonify({"generated": list(results.keys())})
 
 
@@ -191,7 +196,11 @@ def api_download(dossier_number):
             {"error": "dossier introuvable ou filtré par should_be_exported"}
         ), 404
     journal.ecrire(g.utilisateur["email"], "telechargement", pdf, dossier_number, "ok")
-    return send_file(path, as_attachment=True)
+    # lu en mémoire puis supprimé du disque avant l'envoi au navigateur
+    contenu = io.BytesIO(Path(path).read_bytes())
+    nom = Path(path).name
+    pdfs.supprimer(path)
+    return send_file(contenu, as_attachment=True, download_name=nom, mimetype="application/pdf")
 
 
 @app.post("/api/kits/send")
@@ -211,6 +220,15 @@ def api_send():
                            "erreur", f"génération échouée : {exc}")
         return jsonify({"error": f"génération échouée : {exc}"}), 500
 
+    try:
+        sent, failed = _envoyer(document, dossier_numbers, pdf_paths)
+    finally:
+        pdfs.supprimer(*(c for chemins in pdf_paths.values() for c in chemins.values()))
+    status_code = 200 if not failed else 207  # 207 Multi-Status : succès partiel
+    return jsonify({"sent": sent, "failed": failed}), status_code
+
+
+def _envoyer(document: str, dossier_numbers: list, pdf_paths: dict) -> tuple[list, dict]:
     sent, failed = [], {}
     for dossier_number in dossier_numbers:
         chemins = pdf_paths.get(str(dossier_number))
@@ -225,9 +243,7 @@ def api_send():
         except Exception as exc:  # noqa: BLE001
             failed[dossier_number] = str(exc)
             journal.ecrire(g.utilisateur["email"], "envoi", document, dossier_number, "erreur", str(exc))
-
-    status_code = 200 if not failed else 207  # 207 Multi-Status : succès partiel
-    return jsonify({"sent": sent, "failed": failed}), status_code
+    return sent, failed
 
 
 if __name__ == "__main__":
