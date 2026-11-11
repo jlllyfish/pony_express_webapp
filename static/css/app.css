@@ -2825,3 +2825,19 @@ body.vue-dashboard .barre-filtres {
 .carte.is-selected::before {
   background: var(--violet);
 }
+
+/* Logo Moow : sous la barre du haut, à droite, aligné sur le bouton « Vérifier avec DN » */
+.entete-page {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.entete-moow {
+  height: 46px;
+  width: auto;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+@media (max-width: 900px) {
+  .entete-moow { height: 34px; }
+}
