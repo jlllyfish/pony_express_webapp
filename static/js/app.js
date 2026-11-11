@@ -421,8 +421,11 @@
   }
 
   // Vue globale d'un dossier : les deux documents, quel que soit l'onglet actif
+  // Tous les documents du dossier envoyés (statuts Grist, recalés sur DN par « Vérifier avec DN »)
+  const estComplet = (d) => Boolean(d.envoye_pedagogique && d.envoye_financier);
+
   function etatGlobal(d) {
-    const complet = d.envoye_pedagogique && d.envoye_financier;
+    const complet = estComplet(d);
     if (complet) {
       return `<span class="etat-global is-complet" title="Tous les documents ont été envoyés">${svg(ICO.coche, 12)}Complet</span>`;
     }
@@ -438,6 +441,7 @@
     const fin = allDossiers.filter((d) => d.envoye_financier).length;
     const complets = allDossiers.filter((d) => d.envoye_pedagogique && d.envoye_financier).length;
     document.getElementById("count-complets").textContent = complets;
+    document.getElementById("libelle-complets").textContent = complets > 1 ? "complets" : "complet";
     document.getElementById("libelle-dossiers").textContent = total > 1 ? "dossiers" : "dossier";
     document.getElementById("compte-pedagogique").textContent = total ? `${peda}/${total}` : "";
     document.getElementById("compte-financier").textContent = total ? `${fin}/${total}` : "";
@@ -458,7 +462,7 @@
         <div class="carte-entete">
           <input class="carte-coche" type="checkbox" data-dossier="${d.dossier_number}" ${sel ? "checked" : ""}
                  aria-label="Sélectionner le dossier ${d.dossier_number}">
-          <span class="carte-avatar" aria-hidden="true">${c.avatar}</span>
+          <span class="carte-avatar${estComplet(d) ? " is-complet" : ""}" aria-hidden="true">${c.avatar}</span>
           <div class="carte-nom">
             <h3>${c.titre}</h3>
             <p class="carte-sous-titre">${lienDossier(d)}</p>
@@ -481,7 +485,7 @@
       <article class="ligne${sel ? " is-selected" : ""}" data-dossier="${d.dossier_number}">
         <input class="carte-coche" type="checkbox" data-dossier="${d.dossier_number}" ${sel ? "checked" : ""}
                aria-label="Sélectionner le dossier ${d.dossier_number}">
-        <span class="carte-avatar carte-avatar--petit" aria-hidden="true">${c.avatar}</span>
+        <span class="carte-avatar carte-avatar--petit${estComplet(d) ? " is-complet" : ""}" aria-hidden="true">${c.avatar}</span>
         <div class="ligne-nom"><h3>${c.titre}</h3><small>${lienDossier(d)} · ${d.etablissement}</small></div>
         <span class="carte-pays" title="${d.pays_accueil || ""}">${d.pays_accueil || "Pays ?"}</span>
         <div class="ligne-col"><b>${c.infos[0].haut}</b><small>${c.infos[0].bas || ""}</small></div>

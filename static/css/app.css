@@ -2852,3 +2852,11 @@ body.vue-dashboard .barre-filtres {
     z-index: 20;
   }
 }
+
+/* Avatar coloré seulement quand tous les documents du dossier sont envoyés */
+.carte-avatar:not(.is-complet),
+.carte .carte-avatar:not(.is-complet) {
+  background: #e7e8f2;
+  color: #6b7190;
+  box-shadow: none;
+}
