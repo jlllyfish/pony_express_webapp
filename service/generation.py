@@ -9,7 +9,7 @@ l'UI doit pouvoir cibler une sélection précise.
 """
 
 from pony_express.service.grist import GristService
-from pony_express.service.pdf import generate_pdf
+from service.pdf import generate_pdf
 from pony_express.service.utils import TEMPLATES_FOLDER_PATH
 from pony_express.templates import (
     attestation_presence,

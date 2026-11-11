@@ -26,6 +26,10 @@ from service.generation import TEMPLATES, generate_document, generate_pieces
 from service import auth
 
 app = Flask(__name__)
+# Derrière le routeur Scalingo : HTTPS et nom d'hôte réels (liens de réinitialisation en https://)
+from werkzeug.middleware.proxy_fix import ProxyFix  # noqa: E402
+
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 # Clé de signature des sessions et des liens de réinitialisation : à définir en production
 app.secret_key = os.environ.get("SECRET_KEY")
@@ -51,6 +55,12 @@ def get_dossiers(refresh: bool = False):
 def favicon():
     """Icône demandée d'office par les navigateurs à la racine du site."""
     return send_file(os.path.join(app.static_folder, "favicon.ico"), mimetype="image/vnd.microsoft.icon")
+
+
+@app.get("/health")
+def health():
+    """Sonde de disponibilité (publique) : ne touche ni Grist ni DN."""
+    return jsonify({"status": "ok"})
 
 
 @app.get("/")

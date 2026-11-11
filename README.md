@@ -12,16 +12,17 @@ PonyExpress pour la colonne PJ côté Grist).
 
 ## Installation locale
 
-1. Vendoriser PonyExpress (nécessaire : ses chemins vers `templates/` et les fontes
-   sont relatifs à sa propre racine de repo, donc il ne peut pas être une simple
-   dépendance pip installée dans site-packages) :
+1. PonyExpress est copié dans `vendor/pony_express` via **git subtree** (Scalingo ne
+   récupère pas les sous-modules git). Ses chemins vers `templates/` et les fontes sont
+   relatifs à sa racine, d'où la copie plutôt qu'une dépendance pip. Pour récupérer
+   les derniers templates :
 
    ```sh
-   git submodule add https://github.com/jlllyfish/Pony_express.git vendor/pony_express
+   git subtree pull --prefix=vendor/pony_express https://github.com/jlllyfish/Pony_express.git main --squash
    ```
 
-2. Installer `typst` (binaire, pas le wrapper pip) — voir
-   https://github.com/typst/typst?tab=readme-ov-file#installation
+2. Typst : rien à installer, le compilateur est fourni par le paquet PyPI `typst`
+   (compilation dans le processus Python, voir `service/pdf.py`).
 
 3. Installer les dépendances :
 
@@ -40,6 +41,26 @@ PonyExpress pour la colonne PJ côté Grist).
    ```
 
    ou directement `poetry run python app.py`.
+
+## Déploiement Scalingo
+
+Buildpack Python (détecté via `poetry.lock`, version dans `.python-version`), lancé par
+le `Procfile` (gunicorn, 1 worker / 8 threads : le cache et le compteur d'essais de
+connexion sont en mémoire, donc un seul processus).
+
+Apps : `pony-express-tech-preprod` → `pony-express-tech` (et plus tard `-sup-…`).
+
+1. Créer l'app (région `osc-fr1`) et ajouter l'addon PostgreSQL (fournit `DATABASE_URL`).
+2. Variables d'environnement : toutes celles de `.env.example`, avec `SECRET_KEY`
+   aléatoire, sans `FLASK_DEBUG` ni `PORT` (fourni par Scalingo).
+   `DN_API_TOKEN` et `INSTRUCTEUR_ID` sont obligatoires au démarrage.
+3. Lier le dépôt GitHub (onglet *Code*) sur la branche voulue, puis déployer.
+4. Créer le premier compte :
+   `scalingo --app pony-express-tech-preprod run flask --app app utilisateurs ajouter prenom.nom@exemple.fr`
+
+**Validation de l'étape 1** : le build passe, `https://<app>.osc-fr1.scalingo.io/health`
+répond `{"status":"ok"}`, `/` redirige vers `/connexion`, la connexion fonctionne et un
+kit généré a les fontes Marianne.
 
 ## Comptes utilisateurs
 
