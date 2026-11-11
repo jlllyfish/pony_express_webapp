@@ -13,6 +13,7 @@ Authentification : connexion, déconnexion, mot de passe oublié, gestion des co
   Sur Scalingo : scalingo --app <app> run flask --app app utilisateurs ajouter …
 """
 
+import logging
 import os
 import secrets
 import time
@@ -90,6 +91,21 @@ def init_app(app):
         return redirect(url_for("auth.connexion", suivant=request.path))
 
     app.cli.add_command(cli_utilisateurs)
+    _creer_premier_compte()
+
+
+def _creer_premier_compte():
+    """Amorçage sans terminal : si PREMIER_COMPTE contient un e-mail et qu'aucun compte
+    n'existe, crée ce compte avec un mot de passe aléatoire inconnu. On définit ensuite
+    le sien via « Mot de passe oublié » (lien envoyé par e-mail, ou écrit dans les logs)."""
+    email = os.environ.get("PREMIER_COMPTE", "").strip()
+    if not email or comptes.lister():
+        return
+    comptes.creer(email, secrets.token_urlsafe(32))
+    logging.getLogger(__name__).warning(
+        "Premier compte créé : %s. Utilisez « Mot de passe oublié » pour définir le mot de passe, "
+        "puis supprimez la variable PREMIER_COMPTE.", comptes.normaliser(email)
+    )
 
 
 # --- Pages --------------------------------------------------------------------

@@ -76,6 +76,10 @@ poetry run flask --app app utilisateurs supprimer prenom.nom@exemple.fr
 
 Sur Scalingo : `scalingo --app <app> run flask --app app utilisateurs ajouter prenom.nom@exemple.fr`.
 
+Sans terminal (réseau qui bloque `scalingo run`) : définir la variable `PREMIER_COMPTE=prenom.nom@exemple.fr`
+et redéployer. Si aucun compte n'existe, il est créé avec un mot de passe aléatoire : passer par
+« Mot de passe oublié » (sans SMTP, le lien est dans les logs) pour choisir le sien, puis supprimer la variable.
+
 - Comptes stockés dans PostgreSQL (`DATABASE_URL`, fournie par l'addon Scalingo), SQLite en local.
 - Mots de passe chiffrés (scrypt), jamais stockés en clair.
 - « Mot de passe oublié » : lien valable 1 h et utilisable une seule fois, envoyé par e-mail
