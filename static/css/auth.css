@@ -127,11 +127,18 @@ button:focus-visible { outline: 2px solid var(--violet); outline-offset: 3px; }
 /* Double authentification */
 .qr { margin: -8px 0 12px; line-height: 0; }
 .qr svg { width: 230px; height: 230px; display: block; }
-.secret { width: 100%; margin-bottom: 22px; font-size: 12px; color: var(--ink-soft); text-align: center; }
-.secret summary { cursor: pointer; }
-.secret p { margin: 8px 0 4px; }
+.secret { width: 100%; margin-bottom: 22px; font-size: 12px; color: var(--ink-soft); }
+.secret summary { cursor: pointer; text-align: center; color: var(--violet-fonce); font-weight: 600; }
+.secret ol { margin: 12px 0 0; padding-left: 18px; line-height: 1.5; text-align: left; }
+.secret li { margin-bottom: 8px; }
+.secret .nuance { display: block; font-size: 11px; color: #8d8ba8; }
+.secret .cle { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .secret code, .aide code { font-family: ui-monospace, Consolas, monospace; color: var(--violet-fonce); }
-.secret code { display: block; font-size: 13px; word-break: break-all; }
+.secret code { font-size: 13px; word-break: normal; line-height: 1.6; background: var(--fond); padding: 6px 8px; border-radius: 6px; flex: 1; }
+button.copier-cle { margin: 0; padding: 6px 12px; font-size: 12px; background: var(--lavande); color: var(--violet-fonce); }
+button.copier-cle:hover { background: #d8d5e6; }
+.bouton-appli { display: none; margin: 0 0 14px; font-size: 13px; font-weight: 600; color: var(--violet-fonce); text-align: center; }
+@media (pointer: coarse) { .bouton-appli { display: block; } } /* lien otpauth:// utile seulement sur téléphone */
 .aide { margin: 18px 0 0; font-size: 12px; line-height: 1.5; color: var(--ink-soft); text-align: center; }
 .codes { columns: 2; column-gap: 28px; margin: -6px 0 22px; padding-left: 22px; font-size: 13px; color: var(--ink-soft); }
 .codes li { margin-bottom: 6px; }

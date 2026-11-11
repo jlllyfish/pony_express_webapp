@@ -198,7 +198,7 @@ def activer_2fa():
             session["apres_codes"] = etape["suivant"]
             return reponse
     return render_template("activer_2fa.html", qr=totp.qr_svg(secret, u["email"]),
-                           secret=totp.secret_lisible(secret))
+                           secret=totp.secret_lisible(secret), lien_appli=totp.uri(secret, u["email"]))
 
 
 @bp.route("/connexion/code", methods=["GET", "POST"])
