@@ -54,7 +54,7 @@
         <h2>{{ comptes|length }} compte{{ 's' if comptes|length > 1 }}</h2>
         <table class="admin-table">
           <thead>
-            <tr><th>Adresse</th><th>Rôle</th><th>Statut</th><th>Dernière connexion</th><th></th></tr>
+            <tr><th>Adresse</th><th>Rôle</th><th>Statut</th><th>2FA</th><th>Dernière connexion</th><th></th></tr>
           </thead>
           <tbody>
             {% for c in comptes %}
@@ -67,6 +67,7 @@
                 {% elif not c.derniere_connexion %}<span class="badge badge--attente">Invité</span>
                 {% else %}<span class="badge badge--actif">Actif</span>{% endif %}
               </td>
+              <td>{% if c.totp_secret %}<span class="badge badge--actif">Activée</span>{% else %}<span class="badge badge--user">À configurer</span>{% endif %}</td>
               <td>{{ c.derniere_connexion|paris }}</td>
               <td>
                 <div class="admin-actions">
@@ -80,6 +81,7 @@
                   {{ action('lien', 'Nouveau lien') }}
                   {% if c.actif %}{{ action('desactiver', 'Désactiver', interdit=soi) }}{% else %}{{ action('activer', 'Activer') }}{% endif %}
                   {% if c.admin %}{{ action('retirer-admin', 'Retirer admin', interdit=soi) }}{% else %}{{ action('admin', 'Rendre admin') }}{% endif %}
+                  {% if c.totp_secret %}{{ action('reinitialiser-2fa', 'Réinit. 2FA', confirmation='Réinitialiser la double authentification de ' ~ c.email ~ ' ? Il devra reconfigurer son téléphone.') }}{% endif %}
                   {{ action('supprimer', 'Supprimer', 'admin-btn--danger', 'Supprimer définitivement ' ~ c.email ~ ' ?', interdit=soi) }}
                 </div>
               </td>

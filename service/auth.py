@@ -26,12 +26,13 @@ import click
 from flask import (Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template,
                    request, session, url_for)
 
-from service import courriel, journal, utilisateurs as comptes
+from service import courriel, journal, totp, utilisateurs as comptes
 
 bp = Blueprint("auth", __name__)
 
 PAGES_PUBLIQUES = {"auth.connexion", "auth.mot_de_passe_oublie", "auth.reinitialiser", "auth.bienvenue",
-                   "static", "favicon", "health"}
+                   "auth.activer_2fa", "auth.code_2fa", "static", "favicon", "health"}
+DUREE_ETAPE_2FA = 10 * 60  # délai pour saisir le code après le mot de passe
 ESSAIS_MAX, FENETRE_ESSAIS = 5, 15 * 60
 _essais: dict = defaultdict(deque)
 
@@ -127,15 +128,130 @@ def connexion():
             _echec(f"email:{email}", f"ip:{ip}")
             flash("Adresse e-mail ou mot de passe incorrect.", "erreur")
             return render_template("connexion.html", email=email), 401
-        session.clear()
-        session.permanent = True
-        session["uid"] = u["id"]
-        session["accueil"] = True  # toast « Hay Prénom ! » au prochain affichage
         suivant = request.args.get("suivant", "")
-        return redirect(suivant if suivant.startswith("/") and not suivant.startswith("//") else url_for("index"))
+        suivant = suivant if suivant.startswith("/") and not suivant.startswith("//") else url_for("index")
+        if not totp.obligatoire():
+            return _ouvrir_session(u, suivant)
+        # Mot de passe OK : session « en attente du 2e facteur », sans aucun accès aux données
+        session.clear()
+        session["2fa"] = {"uid": u["id"], "t": time.time(), "suivant": suivant}
+        return redirect(url_for("auth.code_2fa" if u["totp_secret"] else "auth.activer_2fa"))
     if g.get("utilisateur"):
         return redirect(url_for("index"))
     return render_template("connexion.html", email="")
+
+
+def _ouvrir_session(u: dict, suivant: str):
+    session.clear()
+    session.permanent = True
+    session["uid"] = u["id"]
+    session["accueil"] = True  # toast « Hay Prénom ! » au prochain affichage
+    comptes.marquer_connexion(u["id"])
+    return redirect(suivant)
+
+
+def _en_attente_2fa() -> dict | None:
+    """Utilisateur dont le mot de passe vient d'être validé (moins de 10 min), sinon None."""
+    etape = session.get("2fa")
+    if not etape or time.time() - etape.get("t", 0) > DUREE_ETAPE_2FA:
+        session.pop("2fa", None)
+        return None
+    u = comptes.trouver_par_id(etape["uid"])
+    return u if u and u["actif"] else None
+
+
+def _etape_expiree():
+    flash("Étape expirée : reconnectez-vous.", "erreur")
+    return redirect(url_for("auth.connexion"))
+
+
+@bp.route("/connexion/activer-2fa", methods=["GET", "POST"])
+def activer_2fa():
+    """Premier passage : enrôlement de l'application d'authentification (obligatoire)."""
+    u = _en_attente_2fa()
+    if not u:
+        return _etape_expiree()
+    if u["totp_secret"]:
+        return redirect(url_for("auth.code_2fa"))
+    etape = session["2fa"]
+    if "secret" not in etape:
+        etape["secret"] = totp.nouveau_secret()  # pas en base tant que le premier code n'est pas validé
+        session["2fa"] = etape
+    secret = etape["secret"]
+    if request.method == "POST":
+        _verifier_csrf()
+        cle = f"2fa:{u['id']}"
+        pas = None if _bloque(cle) else totp.verifier(secret, request.form.get("code", ""), None)
+        if pas is None:
+            _echec(cle)
+            flash("Trop d'essais : reconnectez-vous dans 15 minutes." if _bloque(cle)
+                  else "Code incorrect : vérifiez l'heure de votre téléphone et réessayez.", "erreur")
+            if _bloque(cle):
+                session.pop("2fa", None)
+                return redirect(url_for("auth.connexion"))
+        else:
+            codes, empreintes = totp.generer_codes_secours()
+            comptes.maj_totp(u["id"], totp_secret=totp.chiffrer(secret), totp_dernier_pas=pas,
+                             codes_secours=empreintes)
+            reponse = _ouvrir_session(u, url_for("auth.codes_secours"))
+            session["codes_secours"] = codes
+            session["apres_codes"] = etape["suivant"]
+            return reponse
+    return render_template("activer_2fa.html", qr=totp.qr_svg(secret, u["email"]),
+                           secret=totp.secret_lisible(secret))
+
+
+@bp.route("/connexion/code", methods=["GET", "POST"])
+def code_2fa():
+    u = _en_attente_2fa()
+    if not u:
+        return _etape_expiree()
+    if not u["totp_secret"]:
+        return redirect(url_for("auth.activer_2fa"))
+    if request.method == "POST":
+        _verifier_csrf()
+        cle = f"2fa:{u['id']}"
+        if _bloque(cle):
+            session.pop("2fa", None)
+            flash("Trop d'essais : reconnectez-vous dans 15 minutes.", "erreur")
+            return redirect(url_for("auth.connexion"))
+        saisie = request.form.get("code", "").strip()
+        suivant = session["2fa"]["suivant"]
+        if "-" in saisie:  # code de secours
+            restants = totp.utiliser_code_secours(saisie, u["codes_secours"])
+            if restants is not None:
+                comptes.maj_totp(u["id"], codes_secours=restants)
+                reponse = _ouvrir_session(u, suivant)
+                n = totp.codes_secours_restants(restants)
+                flash(f"Code de secours utilisé : il vous en reste {n}. Pensez à demander à un administrateur "
+                      "de réinitialiser votre double authentification si vous avez perdu votre téléphone.", "info")
+                return reponse
+        else:
+            secret = totp.dechiffrer(u["totp_secret"])
+            pas = totp.verifier(secret, saisie, u["totp_dernier_pas"]) if secret else None
+            if pas is not None:
+                comptes.maj_totp(u["id"], totp_dernier_pas=pas)
+                return _ouvrir_session(u, suivant)
+            if not secret:
+                logging.getLogger(__name__).error("Secret TOTP illisible pour %s (TOTP_CLE / SECRET_KEY changée ?)",
+                                                  u["email"])
+                flash("Double authentification illisible : demandez à un administrateur de la réinitialiser.", "erreur")
+                return render_template("code_2fa.html")
+        _echec(cle)
+        flash("Code incorrect.", "erreur")
+    return render_template("code_2fa.html")
+
+
+@bp.route("/connexion/codes-de-secours", methods=["GET", "POST"])
+def codes_secours():
+    """Affichage unique des codes de secours, juste après l'enrôlement."""
+    if request.method == "POST":
+        _verifier_csrf()
+        return redirect(session.pop("apres_codes", None) or url_for("index"))
+    codes = session.pop("codes_secours", None)
+    if not codes:
+        return redirect(url_for("index"))
+    return render_template("codes_secours.html", codes=codes)
 
 
 @bp.post("/deconnexion")
@@ -292,6 +408,10 @@ def admin_action(uid, action):
     elif action in {"admin", "retirer-admin"}:
         comptes.definir_admin(u["email"], action == "admin")
         flash(f"{u['email']} : {'administrateur' if action == 'admin' else 'utilisateur'}", "info")
+    elif action == "reinitialiser-2fa":
+        comptes.reinitialiser_totp(uid)
+        flash(f"Double authentification réinitialisée : {u['email']} configurera son téléphone "
+              "à la prochaine connexion.", "info")
     elif action == "supprimer":
         comptes.supprimer(u["email"])
         flash(f"Compte supprimé : {u['email']}", "info")
@@ -335,6 +455,16 @@ def cli_lister():
         etat = ("actif" if u["actif"] else "désactivé") + (" · admin" if u["admin"] else "")
         derniere = u["derniere_connexion"].strftime("%d/%m/%Y %H:%M") if u["derniere_connexion"] else "jamais"
         click.echo(f"{u['email']:<45} {etat:<18} dernière connexion : {derniere}")
+
+
+@cli_utilisateurs.command("reinitialiser-2fa")
+@click.argument("email")
+def cli_reinitialiser_2fa(email):
+    u = comptes.trouver(email)
+    if not u:
+        raise click.ClickException("Compte introuvable.")
+    comptes.reinitialiser_totp(u["id"])
+    click.echo("Double authentification réinitialisée : nouvel enrôlement à la prochaine connexion.")
 
 
 @cli_utilisateurs.command("admin")

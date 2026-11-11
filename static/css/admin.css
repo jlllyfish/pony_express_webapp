@@ -1,6 +1,6 @@
 /* Pages d'administration (utilisateurs, journal) — s'appuie sur les variables d'app.css */
 body.admin { display: block; padding: 32px; background: var(--lavande); }
-.admin-page { max-width: 1040px; margin: 0 auto; }
+.admin-page { max-width: 1180px; margin: 0 auto; }
 .admin-entete { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
 .admin-entete img { width: 36px; height: 36px; }
 .admin-entete h1 { font-size: 22px; margin: 0; font-weight: 800; }

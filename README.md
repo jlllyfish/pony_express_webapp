@@ -71,6 +71,14 @@ L'application exige une connexion. Pas d'inscription libre.
 configuré, sinon affiché une fois pour être transmis), renvoyer un lien, activer / désactiver,
 donner / retirer le rôle admin, supprimer. Le plus ancien compte devient admin s'il n'y en a aucun.
 
+**Double authentification (TOTP)**, obligatoire : après le mot de passe, code à 6 chiffres d'une
+application d'authentification (FreeOTP, Aegis, Google/Microsoft Authenticator). Au premier passage,
+QR code à scanner puis 10 codes de secours à usage unique. Codes rejoués refusés, 5 essais puis
+blocage 15 min. Un admin peut « Réinit. 2FA » (nouvel enrôlement à la connexion suivante).
+Secrets chiffrés avec `TOTP_CLE` (à définir **avant** le premier enrôlement : la changer ensuite
+rend les secrets illisibles). Dépannage sans terminal si plus aucun admin ne peut se connecter :
+`TOTP_OBLIGATOIRE=0` le temps de se connecter et de réinitialiser, puis remettre à 1.
+
 **Page « Journal »** (admins) : chaque envoi vers DN et chaque téléchargement de PDF, avec l'utilisateur,
 le document, le numéro de dossier (jamais le nom de l'apprenant) et le résultat. Conservé
 `JOURNAL_RETENTION_JOURS` jours (365 par défaut).

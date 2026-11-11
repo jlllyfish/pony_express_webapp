@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
-from sqlalchemy import (Boolean, Column, DateTime, Integer, MetaData, String, Table, create_engine, false, func,
+from sqlalchemy import (BigInteger, Boolean, Column, Text, DateTime, Integer, MetaData, String, Table, create_engine, false, func,
                         inspect, select, text)
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -36,6 +36,10 @@ utilisateurs = Table(
     Column("cree_le", DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)),
     Column("derniere_connexion", DateTime(timezone=True)),
     Column("admin", Boolean, nullable=False, default=False, server_default=false()),
+    # double authentification (service/totp.py)
+    Column("totp_secret", String(255)),
+    Column("totp_dernier_pas", BigInteger),
+    Column("codes_secours", Text),
 )
 
 _engine = None
@@ -69,6 +73,10 @@ def _migrer(eng) -> None:
     with eng.begin() as cx:
         if "admin" not in colonnes:
             cx.execute(text("ALTER TABLE utilisateurs ADD COLUMN admin BOOLEAN NOT NULL DEFAULT FALSE"))
+        for nom, type_sql in (("totp_secret", "VARCHAR(255)"), ("totp_dernier_pas", "BIGINT"),
+                              ("codes_secours", "TEXT")):
+            if nom not in colonnes:
+                cx.execute(text(f"ALTER TABLE utilisateurs ADD COLUMN {nom} {type_sql}"))
         # Toujours au moins un administrateur : le plus ancien compte, s'il n'y en a aucun
         if cx.execute(select(func.count()).where(utilisateurs.c.admin.is_(True))).scalar() == 0:
             premier = cx.execute(select(func.min(utilisateurs.c.id))).scalar()
@@ -138,6 +146,22 @@ def definir_admin(email: str, admin: bool) -> bool:
     return r.rowcount > 0
 
 
+def maj_totp(uid: int, **valeurs) -> None:
+    """Écrit les champs de double authentification (totp_secret, totp_dernier_pas, codes_secours)."""
+    with engine().begin() as cx:
+        cx.execute(utilisateurs.update().where(utilisateurs.c.id == uid).values(**valeurs))
+
+
+def reinitialiser_totp(uid: int) -> None:
+    """Oublie le téléphone enrôlé : nouvel enrôlement à la prochaine connexion."""
+    maj_totp(uid, totp_secret=None, totp_dernier_pas=None, codes_secours=None)
+
+
+def marquer_connexion(uid: int) -> None:
+    with engine().begin() as cx:
+        cx.execute(utilisateurs.update().where(utilisateurs.c.id == uid).values(derniere_connexion=func.now()))
+
+
 def changer_mot_de_passe(uid: int, mot_de_passe: str) -> None:
     erreur = verifier_mot_de_passe_robuste(mot_de_passe)
     if erreur:
@@ -164,9 +188,6 @@ def authentifier(email: str, mot_de_passe: str) -> dict | None:
     u = trouver(email)
     if not u or not u["actif"] or not check_password_hash(u["mot_de_passe"], mot_de_passe or ""):
         return None
-    with engine().begin() as cx:
-        cx.execute(utilisateurs.update().where(utilisateurs.c.id == u["id"])
-                   .values(derniere_connexion=func.now()))
     return u
 
 
