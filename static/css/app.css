@@ -2764,15 +2764,6 @@ body.vue-dashboard .barre-filtres {
 .info--trajet svg {
   color: var(--framboise);
 }
-.info--trajet b {
-  font-weight: 500;
-  color: var(--ink-soft);
-}
-.info--trajet small {
-  font-weight: 700;
-  color: var(--encre, #191747);
-  font-size: 13px;
-}
 .carte .carte-docs {
   gap: 0;
   padding: 8px 0 12px;
@@ -2830,3 +2821,7 @@ body.vue-dashboard .barre-filtres {
 }
 .carte .lien-dossier { white-space: nowrap; }
 .carte .info small { overflow-wrap: anywhere; }
+/* Carte sélectionnée : bandeau bleu plein, raccord avec la bordure */
+.carte.is-selected::before {
+  background: var(--violet);
+}

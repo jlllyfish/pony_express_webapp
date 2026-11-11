@@ -370,13 +370,13 @@
   function contenu(d) {
     const dates = { ic: ICO.calendrier, haut: periode(d.date_debut_activite, d.date_fin_activite) || "Dates ?", bas: nbJours(d.date_debut_activite, d.date_fin_activite) };
     const trajet = d.date_trajet_aller || d.date_trajet_retour
-      ? { ic: ICO.avion, haut: "Trajet", bas: periode(d.date_trajet_aller, d.date_trajet_retour, false) }
+      ? { ic: ICO.avion, haut: periode(d.date_trajet_aller, d.date_trajet_retour, false), bas: "trajet" }
       : null;
     if (vue === "groupes") {
       return {
         titre: d.titre || "Centre non renseigné",
         avatar: svg(ICO.groupe, 20),
-        infos: [dates, trajet || { ic: ICO.avion, haut: "Trajet", bas: "non renseigné" },
+        infos: [dates, trajet || { ic: ICO.avion, haut: "Non renseigné", bas: "trajet" },
           { ic: ICO.groupe, haut: d.effectif ?? "?", bas: `apprenant${d.effectif > 1 ? "s" : ""}` },
           { ic: ICO.personne, haut: d.accompagnateurs || "?", bas: "accompagnateurs" }],
         resume: `${d.effectif ?? "?"} + ${d.accompagnateurs || "?"}`,
@@ -393,7 +393,7 @@
       titre: nom,
       avatar: initiales(d),
       infos,
-      resume: vue === "personnel" ? d.type_mobilite || "" : trajet ? trajet.bas : "",
+      resume: vue === "personnel" ? d.type_mobilite || "" : trajet ? trajet.haut : "",
       resumeBas: vue === "personnel" ? "type de mobilité" : trajet ? "trajet" : "",
     };
   }
