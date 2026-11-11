@@ -126,7 +126,7 @@ button:focus-visible { outline: 2px solid var(--violet); outline-offset: 3px; }
 
 /* Double authentification */
 .qr { margin: -8px 0 12px; line-height: 0; }
-.qr svg { width: 185px; height: 185px; }
+.qr svg { width: 230px; height: 230px; display: block; }
 .secret { width: 100%; margin-bottom: 22px; font-size: 12px; color: var(--ink-soft); text-align: center; }
 .secret summary { cursor: pointer; }
 .secret p { margin: 8px 0 4px; }

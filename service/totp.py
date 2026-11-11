@@ -53,7 +53,9 @@ def dechiffrer(secret_chiffre: str) -> str | None:
 def qr_svg(secret: str, email: str) -> str:
     """QR code à scanner avec l'application d'authentification (SVG inline)."""
     uri = pyotp.TOTP(secret).provisioning_uri(name=email, issuer_name=EMETTEUR)
-    return segno.make(uri, error="m").svg_inline(scale=5, dark="#16149a", border=2)
+    # omitsize : viewBox sans largeur/hauteur fixes, la taille est donnée par le CSS (sinon l'image est rognée)
+    # bord de 4 modules (zone de silence exigée par la norme) et fond blanc : lisible par toutes les applis
+    return segno.make(uri, error="m").svg_inline(dark="#000000", light="#ffffff", border=4, omitsize=True)
 
 
 def secret_lisible(secret: str) -> str:
