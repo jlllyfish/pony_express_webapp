@@ -1,3 +1,0 @@
-[submodule "vendor/pony_express"]
-	path = vendor/pony_express
-	url = https://github.com/jlllyfish/Pony_express.git
