@@ -48,7 +48,7 @@ Buildpack Python (détecté via `poetry.lock`, version dans `.python-version`), 
 le `Procfile` (gunicorn, 1 worker / 8 threads : le cache et le compteur d'essais de
 connexion sont en mémoire, donc un seul processus).
 
-Apps : `pony-express-tech-preprod` → `pony-express-tech` (et plus tard `-sup-…`).
+Apps : `pony-express-pro-preprod` → `pony-express-pro` (et plus tard `-sup-…`).
 
 1. Créer l'app (région `osc-fr1`) et ajouter l'addon PostgreSQL (fournit `DATABASE_URL`).
 2. Variables d'environnement : toutes celles de `.env.example`, avec `SECRET_KEY`
@@ -56,7 +56,7 @@ Apps : `pony-express-tech-preprod` → `pony-express-tech` (et plus tard `-sup-�
    `DN_API_TOKEN` et `INSTRUCTEUR_ID` sont obligatoires au démarrage.
 3. Lier le dépôt GitHub (onglet *Code*) sur la branche voulue, puis déployer.
 4. Créer le premier compte :
-   `scalingo --app pony-express-tech-preprod run flask --app app utilisateurs ajouter prenom.nom@exemple.fr`
+   `scalingo --app pony-express-pro-preprod run flask --app app utilisateurs ajouter prenom.nom@exemple.fr`
 
 **Validation de l'étape 1** : le build passe, `https://<app>.osc-fr1.scalingo.io/health`
 répond `{"status":"ok"}`, `/` redirige vers `/connexion`, la connexion fonctionne et un
