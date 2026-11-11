@@ -143,12 +143,17 @@
       <header class="entete-page">
         <div class="entete-titre tuiles-only">
           <h1 id="page-title">Mobilités Apprenant</h1>
-          <p class="compteurs">
-            <span><span id="count-total">0</span> dossiers</span>
-            <span aria-hidden="true">•</span>
-            <span class="chip-a-traiter"><span id="count-a-traiter">0</span> à traiter</span>
-          </p>
-          <div id="synthese" class="synthese" aria-label="Avancement des envois"></div>
+          <div class="badges-statut" aria-label="Avancement des envois">
+            <span class="badge-statut"><b id="count-total">0</b>&nbsp;<span id="libelle-dossiers">dossiers</span></span>
+            <button type="button" id="badge-complets" class="badge-statut badge-statut--complets" aria-pressed="false"
+                    title="N'afficher que les dossiers complets (tous les documents envoyés)">
+              <b id="count-complets">0</b>&nbsp;complets
+            </button>
+            <button type="button" id="badge-a-traiter" class="badge-statut badge-statut--a-traiter" aria-pressed="false"
+                    title="N'afficher que les dossiers dont le document de l'onglet reste à envoyer">
+              <b id="count-a-traiter">0</b>&nbsp;à traiter
+            </button>
+          </div>
         </div>
         <div class="connexions" aria-live="polite">
           <button id="sante-grist" class="sante-item" type="button" data-etat="test" title="Test de connexion en cours…">
@@ -169,8 +174,14 @@
       </header>
 
       <div class="onglets tuiles-only" role="tablist" aria-label="Document à traiter">
-        <button type="button" role="tab" class="onglet is-active" data-filter="document" data-value="pedagogique" id="doc-option-pedagogique">Contrat pédagogique <small>+ attestation</small></button>
-        <button type="button" role="tab" class="onglet" data-filter="document" data-value="financier">Contrat financier</button>
+        <button type="button" role="tab" class="onglet is-active" data-filter="document" data-value="pedagogique">
+          <span id="doc-option-pedagogique">Contrat pédagogique <small>+ attestation</small></span>
+          <span class="onglet-compte" id="compte-pedagogique" title="Dossiers envoyés"></span>
+        </button>
+        <button type="button" role="tab" class="onglet" data-filter="document" data-value="financier">
+          <span>Contrat financier</span>
+          <span class="onglet-compte" id="compte-financier" title="Dossiers envoyés"></span>
+        </button>
       </div>
 
       <div class="barre-filtres sans-bientot">
@@ -178,6 +189,7 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
           <span class="sr-only">Recherche</span>
           <input id="search-nom" type="search" placeholder="Nom du participant" autocomplete="off" />
+          <kbd class="raccourci" title="Raccourci clavier">Ctrl K</kbd>
         </label>
         <select id="filter-etablissement" class="champ-select" aria-label="Établissement">
           <option value="">Tous les établissements</option>
@@ -192,7 +204,7 @@
           <option value="">Tous les types</option>
         </select>
         <div class="filtre-statut tuiles-only">
-          <span id="filtre-statut-libelle">Contrat pédagogique</span>
+          <span id="filtre-statut-libelle" class="sr-only">Contrat pédagogique</span>
           <div class="segmented" role="radiogroup" aria-labelledby="filtre-statut-libelle">
             <button type="button" class="segmented-option is-active" data-filter="statut" data-value="tous">Tous</button>
             <button type="button" class="segmented-option" data-filter="statut" data-value="envoye">Envoyés</button>

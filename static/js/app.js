@@ -407,36 +407,22 @@
     return `<span class="etat-global">${pastille(d.envoye_pedagogique, "Péda", VUES[vue].libellePedagogique)}${pastille(d.envoye_financier, "Fin.", "Contrat financier")}</span>`;
   }
 
-  // Synthèse de l'en-tête : avancement de chaque document et dossiers complets (cliquable = filtre)
+  // Badges de l'en-tête et compteurs des onglets (vue globale des envois)
   function renderSynthese() {
     const total = allDossiers.length;
-    const el_ = document.getElementById("synthese");
-    if (!total) {
-      el_.innerHTML = "";
-      return;
-    }
     const peda = allDossiers.filter((d) => d.envoye_pedagogique).length;
     const fin = allDossiers.filter((d) => d.envoye_financier).length;
     const complets = allDossiers.filter((d) => d.envoye_pedagogique && d.envoye_financier).length;
-    const jauge = (n, libelle, cle) => `
-      <button type="button" class="synthese-item" data-onglet="${cle}" title="Afficher l'onglet ${libelle}">
-        <span class="synthese-libelle">${libelle}</span>
-        <span class="synthese-jauge"><span style="width:${(n / total) * 100}%"></span></span>
-        <b>${n}/${total}</b>
-      </button>`;
-    el_.innerHTML =
-      jauge(peda, VUES[vue].libellePedagogique, "pedagogique") +
-      jauge(fin, "Contrat financier", "financier") +
-      `<button type="button" class="synthese-item synthese-complets${filterComplet === "complets" ? " is-active" : ""}"
-               data-complet="complets" aria-pressed="${filterComplet === "complets"}"
-               title="${filterComplet === "complets" ? "Afficher tous les dossiers" : "N'afficher que les dossiers complets"}">
-         ${svg(ICO.coche, 12)}<span class="synthese-libelle">Complets</span><b>${complets}/${total}</b>
-       </button>` +
-      `<button type="button" class="synthese-item synthese-incomplets${filterComplet === "incomplets" ? " is-active" : ""}"
-               data-complet="incomplets" aria-pressed="${filterComplet === "incomplets"}"
-               title="${filterComplet === "incomplets" ? "Afficher tous les dossiers" : "N'afficher que les dossiers incomplets"}">
-         <span class="synthese-libelle">Incomplets</span><b>${total - complets}</b>
-       </button>`;
+    document.getElementById("count-complets").textContent = complets;
+    document.getElementById("libelle-dossiers").textContent = total > 1 ? "dossiers" : "dossier";
+    document.getElementById("compte-pedagogique").textContent = total ? `${peda}/${total}` : "";
+    document.getElementById("compte-financier").textContent = total ? `${fin}/${total}` : "";
+    const bc = document.getElementById("badge-complets");
+    bc.classList.toggle("is-active", filterComplet === "complets");
+    bc.setAttribute("aria-pressed", filterComplet === "complets");
+    const ba = document.getElementById("badge-a-traiter");
+    ba.classList.toggle("is-active", filterStatut === "a_envoyer");
+    ba.setAttribute("aria-pressed", filterStatut === "a_envoyer");
   }
 
   function carteHtml(d) {
@@ -817,16 +803,24 @@
     document.querySelectorAll('[data-filter="statut"]').forEach((b) =>
       b.classList.toggle("is-active", b.dataset.value === "tous"));
   });
-  document.getElementById("synthese").addEventListener("click", (e) => {
-    const b = e.target.closest(".synthese-item");
-    if (!b) return;
-    if (b.dataset.complet) {
-      filterComplet = filterComplet === b.dataset.complet ? "" : b.dataset.complet;
-      render();
-      return;
+  // Badges cliquables : « complets » et « à traiter » filtrent la liste (second clic = tout)
+  document.getElementById("badge-complets").addEventListener("click", () => {
+    filterComplet = filterComplet === "complets" ? "" : "complets";
+    render();
+  });
+  document.getElementById("badge-a-traiter").addEventListener("click", () => {
+    filterStatut = filterStatut === "a_envoyer" ? "tous" : "a_envoyer";
+    document.querySelectorAll('[data-filter="statut"]').forEach((b) =>
+      b.classList.toggle("is-active", b.dataset.value === filterStatut));
+    render();
+  });
+  // Ctrl+K (ou Cmd+K) : recherche
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k" && !document.body.classList.contains("vue-dashboard")) {
+      e.preventDefault();
+      el.search.focus();
+      el.search.select();
     }
-    // jauge d'un document : bascule sur son onglet
-    document.querySelector(`[data-filter="document"][data-value="${b.dataset.onglet}"]`)?.click();
   });
   el.btnTout.addEventListener("click", selectAllVisible);
   el.btnAucun.addEventListener("click", selectNone);

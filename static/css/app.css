@@ -2422,3 +2422,190 @@ body.vue-dashboard .barre-filtres {
     grid-template-columns: 18px 32px minmax(160px, 1fr) 100px minmax(220px, 1.6fr) 96px;
   }
 }
+
+/* =====================================================================
+   En-tête en 3 niveaux : titre + badges / onglets segmentés / barre d'outils
+   ===================================================================== */
+:root {
+  --encre: #191747;
+  --fond-onglets: #f0f2fa;
+}
+/* Niveau 1 : titre, badges de statut, synchronisation à droite */
+.entete-page {
+  align-items: center;
+}
+.entete-titre {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.entete-page h1 {
+  color: var(--encre);
+  font-size: 28px;
+}
+.badges-statut {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.badge-statut {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+.badge-statut b {
+  color: var(--encre);
+  font-weight: 800;
+}
+button.badge-statut {
+  cursor: pointer;
+}
+button.badge-statut:hover {
+  border-color: var(--lavande);
+}
+.badge-statut--complets b {
+  color: var(--bleu);
+}
+.badge-statut--a-traiter {
+  background: #fff1e6;
+  border-color: #ffd9bd;
+  color: #b35a14;
+}
+.badge-statut--a-traiter b {
+  color: #9a4b0f;
+}
+.badge-statut.is-active {
+  border-color: var(--violet);
+  box-shadow: 0 0 0 2px rgba(108, 56, 245, 0.15);
+}
+.connexions {
+  padding-top: 0;
+}
+
+/* Niveau 2 : onglets en sélecteur segmenté */
+.onglets {
+  align-self: flex-start;
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 20px;
+  padding: 4px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--fond-onglets);
+}
+.onglet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 250px;
+  margin: 0;
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.onglet:hover:not(.is-active) {
+  color: var(--encre);
+}
+.onglet.is-active {
+  background: var(--surface);
+  color: var(--encre);
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(25, 23, 71, 0.08), 0 4px 12px rgba(25, 23, 71, 0.08);
+}
+.onglet small {
+  color: var(--ink-soft);
+}
+.onglet-compte {
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(25, 23, 71, 0.06);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.onglet-compte:empty {
+  display: none;
+}
+.onglet.is-active .onglet-compte {
+  background: #e8eeff;
+  color: var(--bleu);
+}
+
+/* Niveau 3 : barre d'outils sur fond blanc */
+.barre-filtres {
+  margin-top: 14px;
+  padding: 10px;
+  gap: 10px;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(25, 23, 71, 0.04);
+}
+.champ-recherche {
+  background: var(--surface);
+  border: 1.5px solid #dcdbe8;
+  border-radius: 10px;
+}
+.champ-recherche:focus-within {
+  border-color: var(--violet);
+  box-shadow: 0 0 0 3px rgba(108, 56, 245, 0.12);
+}
+.raccourci {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--bg);
+  font: 600 11px "Public Sans", sans-serif;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.champ-select {
+  background: var(--surface);
+  border: 1.5px solid #dcdbe8;
+  padding: 8px 12px;
+  font-weight: 500;
+}
+.filtre-statut .segmented {
+  background: var(--fond-onglets);
+  border: 0;
+}
+.filtre-statut .segmented-option.is-active {
+  background: var(--surface);
+  color: var(--encre);
+  box-shadow: 0 1px 3px rgba(25, 23, 71, 0.12);
+}
+.bascule-vue {
+  margin-left: 0;
+  border: 0;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 10px;
+  background: var(--fond-onglets);
+}
+.bascule-vue button {
+  width: 34px;
+  height: 30px;
+  border-radius: 8px;
+  background: transparent;
+}
+.bascule-vue button.is-active {
+  background: var(--surface);
+  color: var(--encre);
+  box-shadow: 0 1px 3px rgba(25, 23, 71, 0.12);
+}
+@media (max-width: 1100px) {
+  .onglet {
+    min-width: 0;
+  }
+}
