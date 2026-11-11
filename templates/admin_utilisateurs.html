@@ -6,55 +6,17 @@
     <title>Utilisateurs · Pony Express</title>
     <link rel="icon" href="{{ url_for('static', filename='img/logo.svg') }}" type="image/svg+xml" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}" />
-    <style>
-      body.admin { display: block; padding: 32px; background: var(--lavande); }
-      .admin-page { max-width: 1040px; margin: 0 auto; }
-      .admin-entete { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
-      .admin-entete img { width: 36px; height: 36px; }
-      .admin-entete h1 { font-size: 22px; margin: 0; font-weight: 800; }
-      .admin-entete h1 span { color: var(--ink-soft); font-weight: 600; }
-      .admin-retour { margin-left: auto; color: var(--violet); font-weight: 600; text-decoration: none; font-size: 14px; }
-      .admin-retour:hover { text-decoration: underline; }
-      .admin-carte { background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 22px 24px; margin-bottom: 20px; }
-      .admin-carte h2 { font-size: 15px; margin: 0 0 14px; font-weight: 700; }
-      .admin-message { padding: 10px 14px; border-radius: 10px; font-size: 14px; margin-bottom: 14px; }
-      .admin-message--erreur { background: #fde8e8; color: #9b1c1c; }
-      .admin-message--info { background: var(--violet-pale); color: var(--violet-fonce); }
-      .admin-ajout { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-      .admin-ajout input[type=email] { flex: 1; min-width: 260px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; font: inherit; font-size: 14px; }
-      .admin-ajout label { font-size: 14px; color: var(--ink-soft); display: flex; gap: 6px; align-items: center; }
-      .admin-btn { border: 0; border-radius: var(--radius-full); padding: 9px 18px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; background: var(--violet); color: #fff; }
-      .admin-btn:hover { background: var(--violet-fonce); }
-      .admin-btn--petit { padding: 5px 11px; font-size: 12px; font-weight: 600; background: var(--violet-pale); color: var(--violet-fonce); }
-      .admin-btn--petit:hover { background: #dedcf8; }
-      .admin-btn--danger { background: var(--framboise-pale); color: var(--framboise); }
-      .admin-btn--danger:hover { background: #f8d3e0; }
-      .admin-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-      .admin-lien { border: 2px solid var(--violet); }
-      .admin-lien p { margin: 0 0 10px; font-size: 14px; }
-      .admin-lien-ligne { display: flex; gap: 10px; }
-      .admin-lien-ligne input { flex: 1; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; font: inherit; font-size: 13px; color: var(--ink-soft); background: var(--bg); }
-      table.admin-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-      .admin-table th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); font-weight: 700; padding: 0 10px 10px; border-bottom: 1px solid var(--border); }
-      .admin-table td { padding: 12px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-      .admin-table tr:last-child td { border-bottom: 0; }
-      .admin-table tr.inactif td:not(.admin-actions) { color: var(--ink-soft); }
-      .badge { display: inline-block; padding: 3px 10px; border-radius: var(--radius-full); font-size: 12px; font-weight: 700; }
-      .badge--admin { background: var(--violet); color: #fff; }
-      .badge--user { background: var(--bg); color: var(--ink-soft); }
-      .badge--actif { background: #e3f6ec; color: #1a7f4b; }
-      .badge--inactif { background: var(--framboise-pale); color: var(--framboise); }
-      .badge--attente { background: #fff4dc; color: #8a5a00; }
-      .admin-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-      .admin-actions form { margin: 0; }
-      .moi { font-size: 12px; color: var(--ink-soft); margin-left: 6px; }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
   </head>
   <body class="admin">
     <main class="admin-page">
       <header class="admin-entete">
         <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" />
-        <h1>Pony Express <span>· Utilisateurs</span></h1>
+        <h1>Pony Express</h1>
+        <nav class="admin-onglets">
+          <a href="{{ url_for('auth.admin_utilisateurs') }}" aria-current="page">Utilisateurs</a>
+          <a href="{{ url_for('auth.admin_journal') }}">Journal</a>
+        </nav>
         <a class="admin-retour" href="{{ url_for('index') }}">← Retour à l'application</a>
       </header>
 
@@ -105,7 +67,7 @@
                 {% elif not c.derniere_connexion %}<span class="badge badge--attente">Invité</span>
                 {% else %}<span class="badge badge--actif">Actif</span>{% endif %}
               </td>
-              <td>{{ c.derniere_connexion.strftime('%d/%m/%Y %H:%M') if c.derniere_connexion else '—' }}</td>
+              <td>{{ c.derniere_connexion|paris }}</td>
               <td>
                 <div class="admin-actions">
                   {% macro action(nom, libelle, classe='', confirmation='', interdit=False) %}

@@ -13,6 +13,7 @@ sqlalchemy = "^2.0"
 psycopg = {version = "^3.2", extras = ["binary"]}
 gunicorn = "^27.0.0"
 typst = "^0.15.2"
+tzdata = "^2026.6"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

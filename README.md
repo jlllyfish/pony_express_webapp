@@ -71,6 +71,10 @@ L'application exige une connexion. Pas d'inscription libre.
 configuré, sinon affiché une fois pour être transmis), renvoyer un lien, activer / désactiver,
 donner / retirer le rôle admin, supprimer. Le plus ancien compte devient admin s'il n'y en a aucun.
 
+**Page « Journal »** (admins) : chaque envoi vers DN et chaque téléchargement de PDF, avec l'utilisateur,
+le document, le numéro de dossier (jamais le nom de l'apprenant) et le résultat. Conservé
+`JOURNAL_RETENTION_JOURS` jours (365 par défaut).
+
 En ligne de commande (`--admin` pour créer un administrateur, `utilisateurs admin <email>` pour promouvoir) :
 
 ```bash

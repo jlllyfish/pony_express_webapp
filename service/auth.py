@@ -19,13 +19,14 @@ import os
 import secrets
 import time
 from collections import defaultdict, deque
-from datetime import timedelta
+from datetime import timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import click
 from flask import (Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template,
                    request, session, url_for)
 
-from service import courriel, utilisateurs as comptes
+from service import courriel, journal, utilisateurs as comptes
 
 bp = Blueprint("auth", __name__)
 
@@ -199,6 +200,15 @@ def _choisir_mot_de_passe(jeton: str, usage: str):
 
 # --- Administration des comptes -------------------------------------------------
 
+@bp.app_template_filter("paris")
+def heure_paris(dt) -> str:
+    """Date stockée en UTC (naïve en SQLite) -> « jj/mm/aaaa hh:mm » heure de Paris."""
+    if not dt:
+        return "—"
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(ZoneInfo("Europe/Paris")).strftime("%d/%m/%Y %H:%M")
+
 def _admin_requis():
     if not (g.get("utilisateur") and g.utilisateur.get("admin")):
         abort(403)
@@ -232,6 +242,20 @@ def admin_utilisateurs():
         comptes=comptes.lister(),
         moi=g.utilisateur["id"],
         invitation=session.pop("invitation", None),
+    )
+
+
+@bp.get("/admin/journal")
+def admin_journal():
+    _admin_requis()
+    filtre_utilisateur = request.args.get("utilisateur") or None
+    filtre_resultat = request.args.get("resultat") or None
+    return render_template(
+        "admin_journal.html",
+        entrees=journal.lister(utilisateur=filtre_utilisateur, resultat=filtre_resultat),
+        comptes=comptes.lister(),
+        filtre_utilisateur=filtre_utilisateur,
+        filtre_resultat=filtre_resultat,
     )
 
 

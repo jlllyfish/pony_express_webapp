@@ -23,7 +23,7 @@ from service.personnel import list_personnel
 from service.sante import etat_de_sante
 from service.generation import TEMPLATES, generate_document, generate_pieces
 
-from service import auth
+from service import auth, journal
 
 app = Flask(__name__)
 # Derrière le routeur Scalingo : HTTPS et nom d'hôte réels (liens de réinitialisation en https://)
@@ -181,12 +181,16 @@ def api_download(dossier_number):
             raise ValueError(f"PDF inconnu : {pdf}")
         results = generate_document(pdf, [dossier_number])
     except Exception as exc:  # noqa: BLE001
+        journal.ecrire(g.utilisateur["email"], "telechargement", request.args.get("document"), dossier_number,
+                       "erreur", str(exc))
         return jsonify({"error": str(exc)}), 500
     path = results.get(dossier_number) or results.get(int(dossier_number))
     if not path:
+        journal.ecrire(g.utilisateur["email"], "telechargement", pdf, dossier_number, "erreur", "dossier introuvable")
         return jsonify(
             {"error": "dossier introuvable ou filtré par should_be_exported"}
         ), 404
+    journal.ecrire(g.utilisateur["email"], "telechargement", pdf, dossier_number, "ok")
     return send_file(path, as_attachment=True)
 
 
@@ -202,6 +206,9 @@ def api_send():
         document = _document(payload.get("document"))
         pdf_paths = generate_pieces(document, dossier_numbers)
     except Exception as exc:  # noqa: BLE001
+        for dossier_number in dossier_numbers:
+            journal.ecrire(g.utilisateur["email"], "envoi", payload.get("document"), dossier_number,
+                           "erreur", f"génération échouée : {exc}")
         return jsonify({"error": f"génération échouée : {exc}"}), 500
 
     sent, failed = [], {}
@@ -209,12 +216,15 @@ def api_send():
         chemins = pdf_paths.get(str(dossier_number))
         if not chemins:
             failed[dossier_number] = "PDF non généré (filtré par should_be_exported ?)"
+            journal.ecrire(g.utilisateur["email"], "envoi", document, dossier_number, "erreur", failed[dossier_number])
             continue
         try:
             envoyer_document(document, dossier_number, chemins)
             sent.append(dossier_number)
+            journal.ecrire(g.utilisateur["email"], "envoi", document, dossier_number, "ok")
         except Exception as exc:  # noqa: BLE001
             failed[dossier_number] = str(exc)
+            journal.ecrire(g.utilisateur["email"], "envoi", document, dossier_number, "erreur", str(exc))
 
     status_code = 200 if not failed else 207  # 207 Multi-Status : succès partiel
     return jsonify({"sent": sent, "failed": failed}), status_code
