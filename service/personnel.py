@@ -35,6 +35,7 @@ COLONNES_CHAMPS = [
     "pays_d_accueil",
     "ville_du_pays_d_accueil",
     "type_de_mobilite_de_personnel",
+    "type_de_transport",
     "date_debut_activite_hors_jours_de_voyage",
     "date_fin_activite_hors_jours_de_voyage",
 ]
@@ -95,6 +96,7 @@ def list_personnel() -> list[dict]:
                 "pays_accueil": clean_text(row.get("pays_d_accueil")),
                 "ville_accueil": clean_text(row.get("ville_du_pays_d_accueil")),
                 "type_mobilite": clean_text(row.get("type_de_mobilite_de_personnel")),
+                "type_transport": clean_text(row.get("type_de_transport")),
                 "date_debut_activite": _date(row, "date_debut_activite_hors_jours_de_voyage"),
                 "date_fin_activite": _date(row, "date_fin_activite_hors_jours_de_voyage"),
                 "state": clean_text(row.get("state")),

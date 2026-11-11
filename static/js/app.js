@@ -319,7 +319,26 @@
     lieu: '<path d="M20 10c0 4.99-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
     telecharger: '<path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
     coche: '<path d="M5 12l4 4 10-10"/>',
+    bus: '<path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>',
+    bateau: '<path d="M12 10.189V14"/><path d="M12 2v3"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-8.188-3.639a2 2 0 0 0-1.624 0L3 14a11.6 11.6 0 0 0 2.81 7.76"/><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>',
+    train: '<path d="M8 3.1V7a4 4 0 0 0 8 0V3.1"/><path d="m9 15-1-1"/><path d="m15 15 1-1"/><path d="M9 19c-2.8 0-5-2.2-5-5v-4a8 8 0 0 1 16 0v4c0 2.8-2.2 5-5 5Z"/><path d="m8 19-2 3"/><path d="m16 19 2 3"/>',
+    voiture: '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>',
+    trajet: '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
   };
+  // Type de transport (colonne Grist type_de_transport) -> icône + libellé court
+  function transport(type) {
+    const t = (type || "").toLowerCase();
+    if (!t) return { ic: ICO.trajet, court: "" };
+    if (t.startsWith("autocar")) return { ic: ICO.bus, court: "autocar" };
+    if (t.startsWith("avion")) return { ic: ICO.avion, court: "avion" };
+    if (t.startsWith("bateau")) return { ic: ICO.bateau, court: "bateau" };
+    if (t.startsWith("train")) return { ic: ICO.train, court: "train" };
+    if (t.startsWith("covoiturage")) return { ic: ICO.voiture, court: "covoiturage" };
+    if (t.includes("location")) return { ic: ICO.voiture, court: "location" };
+    if (t.includes("eplefpa")) return { ic: ICO.voiture, court: "EPLEFPA" };
+    if (t.startsWith("véhicule") || t.startsWith("vehicule")) return { ic: ICO.voiture, court: "véhicule perso." };
+    return { ic: ICO.trajet, court: type };
+  }
   const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
 
   // « 19 – 23 oct. 2026 », « 28 oct. – 3 nov. 2026 » ; texte brut si une date manque
@@ -369,14 +388,16 @@
   // Données affichées selon la page : titre, avatar, deux paires d'infos
   function contenu(d) {
     const dates = { ic: ICO.calendrier, haut: periode(d.date_debut_activite, d.date_fin_activite) || "Dates ?", bas: nbJours(d.date_debut_activite, d.date_fin_activite) };
+    const tr = transport(d.type_transport);
+    const basTrajet = tr.court ? `trajet · ${tr.court}` : "trajet";
     const trajet = d.date_trajet_aller || d.date_trajet_retour
-      ? { ic: ICO.avion, haut: periode(d.date_trajet_aller, d.date_trajet_retour, false), bas: "trajet" }
+      ? { ic: tr.ic, haut: periode(d.date_trajet_aller, d.date_trajet_retour, false), bas: basTrajet, trajet: true, titre: d.type_transport }
       : null;
     if (vue === "groupes") {
       return {
         titre: d.titre || "Centre non renseigné",
         avatar: svg(ICO.groupe, 20),
-        infos: [dates, trajet || { ic: ICO.avion, haut: "Non renseigné", bas: "trajet" },
+        infos: [dates, trajet || { ic: tr.ic, haut: "Non renseigné", bas: basTrajet, trajet: true, titre: d.type_transport },
           { ic: ICO.groupe, haut: d.effectif ?? "?", bas: `apprenant${d.effectif > 1 ? "s" : ""}` },
           { ic: ICO.personne, haut: d.accompagnateurs || "?", bas: "accompagnateurs" }],
         resume: `${d.effectif ?? "?"} + ${d.accompagnateurs || "?"}`,
@@ -388,6 +409,7 @@
     if (vue === "personnel") {
       infos.push({ ic: ICO.badge, haut: d.type_mobilite || "Type ?", bas: "type de mobilité" });
       if (d.ville_accueil) infos.push({ ic: ICO.lieu, haut: d.ville_accueil, bas: "ville d'accueil" });
+      if (d.type_transport) infos.push({ ic: tr.ic, haut: d.type_transport, bas: "transport", trajet: true });
     } else if (trajet) infos.push(trajet);
     return {
       titre: nom,
@@ -430,7 +452,7 @@
   function carteHtml(d) {
     const c = contenu(d);
     const sel = selected.has(String(d.dossier_number));
-    const infos = c.infos.map((i) => `<div class="info${i.ic === ICO.avion ? " info--trajet" : ""}">${svg(i.ic)}<div><b>${i.haut}</b>${i.bas ? `<small>${i.bas}</small>` : ""}</div></div>`).join("");
+    const infos = c.infos.map((i) => `<div class="info${i.trajet ? " info--trajet" : ""}"${i.titre ? ` title="${i.titre}"` : ""}>${svg(i.ic)}<div><b>${i.haut}</b>${i.bas ? `<small>${i.bas}</small>` : ""}</div></div>`).join("");
     return `
       <article class="carte${sel ? " is-selected" : ""}" data-dossier="${d.dossier_number}">
         <div class="carte-entete">

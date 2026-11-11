@@ -19,6 +19,7 @@ CHAMP_DATE_TRAJET_ALLER = "date_de_trajet_aller"
 CHAMP_DATE_TRAJET_RETOUR = "date_de_trajet_retour"
 CHAMP_DATE_DEBUT = "date_debut_activite_hors_jours_de_voyage"
 CHAMP_DATE_FIN = "date_fin_activite_hors_jours_de_voyage"
+CHAMP_TRANSPORT = "type_de_transport"
 
 
 def _grist() -> GristService:
@@ -43,7 +44,7 @@ COLONNES_ANNOTATIONS = [
 ]
 COLONNES_CHAMPS = [
     CHAMP_ETABLISSEMENT, CHAMP_PAYS, CHAMP_DATE_TRAJET_ALLER,
-    CHAMP_DATE_TRAJET_RETOUR, CHAMP_DATE_DEBUT, CHAMP_DATE_FIN,
+    CHAMP_DATE_TRAJET_RETOUR, CHAMP_DATE_DEBUT, CHAMP_DATE_FIN, CHAMP_TRANSPORT,
 ]
 
 
@@ -79,6 +80,7 @@ def list_dossiers() -> list[dict]:
                 "pays_accueil": clean_text(champ.get(CHAMP_PAYS)),
                 "date_trajet_aller": _date(champ, CHAMP_DATE_TRAJET_ALLER),
                 "date_trajet_retour": _date(champ, CHAMP_DATE_TRAJET_RETOUR),
+                "type_transport": clean_text(champ.get(CHAMP_TRANSPORT)),
                 "date_debut_activite": _date(champ, CHAMP_DATE_DEBUT),
                 "date_fin_activite": _date(champ, CHAMP_DATE_FIN),
                 "envoye_pedagogique": bool(row.get("contrat_pedagogique_envoye_par_l_ensfea")),

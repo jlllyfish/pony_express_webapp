@@ -54,6 +54,7 @@ COLONNES_CHAMPS = [
     "date_fin_activite_hors_jours_de_voyage",
     "date_de_trajet_aller",
     "date_de_trajet_retour",
+    "type_de_transport",
     "nombre_d_apprenants_total",
     "combien_d_accompagnateurs_sont_prevus",
 ]
@@ -102,6 +103,7 @@ def list_groupes() -> list[dict]:
                 "date_fin_activite": _date(row, "date_fin_activite_hors_jours_de_voyage"),
                 "date_trajet_aller": _date(row, "date_de_trajet_aller"),
                 "date_trajet_retour": _date(row, "date_de_trajet_retour"),
+                "type_transport": clean_text(row.get("type_de_transport")),
                 "effectif": _entier(row.get("nombre_d_apprenants_total")),
                 "accompagnateurs": clean_text(row.get("combien_d_accompagnateurs_sont_prevus")),
                 "state": clean_text(dossier.get("state")),
