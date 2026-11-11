@@ -1,0 +1,12 @@
+
+doc/dist/
+
+generated/
+
+shell.nix
+
+.idea/
+__pycache__/
+.venv/
+.env
+colonnes_grist.txt

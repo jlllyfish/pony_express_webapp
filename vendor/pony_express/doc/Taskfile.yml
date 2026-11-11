@@ -1,0 +1,18 @@
+version: '3'
+
+tasks:
+  default:
+    cmds:
+      - task --list
+  setup:
+    desc: install all the required dependencies
+    cmds:
+      - npm install
+  serve:
+    desc: serve the doc locally to update it
+    cmds:
+      - nix-shell --pure --command "npm run start"
+  serve_read:
+    desc: serve the doc locally with the search option
+    cmds:
+      - nix-shell --pure --command "npm run build > /dev/null && http-server dist -p 4444"
