@@ -1,0 +1,29 @@
+version: '3'
+
+tasks:
+  default:
+    cmds:
+      - task --list
+  setup:
+    desc: install all the required dependencies
+    cmds:
+      - poetry install
+      - cd doc && npm install
+  serve:
+    desc: run ponyexpress
+    cmds:
+      - poetry run python src/pony_express/templates/contrat_financier.py
+      - poetry run python src/pony_express/templates/contrat_pedagogique.py
+  serve_exemple:
+    desc: run the ponyexpress exemple (birthday card template)
+    cmds:
+      - poetry run python src/pony_express/templates/exemple.py
+  doc:
+    desc: run the doc locally
+    cmds:
+      - cd doc && npm run start
+  doc_read:
+    desc: serve the doc locally with the search option
+    cmds:
+      - cd doc && npm run build > /dev/null && http-server dist -p 4444
+

@@ -1,0 +1,20 @@
+[project]
+name = "pony_express"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Erica Delagnier",email = "erica.delagnier@multi.coop"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "python-slugify (>=8.0.4,<9.0.0)",
+    "pygrister (>=0.9.1,<0.10.0)",
+]
+
+[tool.poetry]
+packages = [{include = "pony_express", from = "src"}]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
