@@ -105,7 +105,7 @@ button:focus-visible { outline: 2px solid var(--violet); outline-offset: 3px; }
 .message--erreur { background: #fde8e8; color: #9b1c1c; }
 .message--info { background: #eeeefc; color: var(--violet-fonce); }
 .droite { display: flex; align-items: center; justify-content: center; padding: 80px 30px 60px 0; }
-.droite img { width: 50%; max-width: 410px; height: auto; }
+.droite img { width: 100%; max-width: 499px; height: auto; } /* taille d'origine au maximum, jamais agrandie */
 .moow { position: absolute; left: 44px; bottom: 34px; width: 120px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
