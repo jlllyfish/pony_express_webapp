@@ -277,6 +277,8 @@
 
     const query = el.search.value.trim().toLowerCase();
     if (!query) return true;
+    // numéro de dossier (saisie de chiffres) : le numéro contient la saisie
+    if (/^\d+$/.test(query)) return String(dossier.dossier_number).includes(query);
     // groupes : le centre constitutif contient la saisie
     if (vue === "groupes") return (dossier.titre || "").toLowerCase().includes(query);
     // apprenants : recherche "starts with" sur nom ou prénom
