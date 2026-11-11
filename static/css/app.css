@@ -2842,3 +2842,13 @@ body.vue-dashboard .barre-filtres {
 @media (max-width: 900px) {
   .entete-moow { height: 34px; }
 }
+
+/* Rail : pas de défilement (les 6 icônes tiennent toujours) ; sinon les infobulles,
+   qui débordent à droite, créaient un ascenseur horizontal et étaient coupées */
+@media (min-width: 821px) {
+  .rail {
+    overflow: visible;
+    position: relative;
+    z-index: 20;
+  }
+}
