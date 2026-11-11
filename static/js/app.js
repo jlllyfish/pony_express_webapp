@@ -845,7 +845,7 @@
   // Navigation entre les pages par le rail (#apprenants, #groupes)
   // --- Tableau de bord du consortium ---
 
-  const COULEURS_TYPES = { apprenants: "#1E1CC8", groupes: "#D1215D", personnel: "#DEAA87" };
+  const COULEURS_TYPES = { apprenants: "#1E1CC8", groupes: "#D1215D", personnel: "#4DC2EF" };
   const nf = (n) => Number(n || 0).toLocaleString("fr-FR");
   const euros = (n) => `${nf(Math.round(n || 0))} €`;
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
