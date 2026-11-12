@@ -1,7 +1,11 @@
 {% extends "auth_base.html" %}
-{% block titre %}Nouveau mot de passe{% endblock %}
+{% block titre %}{{ "Bienvenue" if invitation else "Nouveau mot de passe" }}{% endblock %}
 {% block formulaire %}
+  {% if invitation %}
+  <p class="consigne">Bienvenue <b>{{ email }}</b> ! Choisissez votre mot de passe (12 caractères minimum).</p>
+  {% else %}
   <p class="consigne">Choisissez un nouveau mot de passe (12 caractères minimum).</p>
+  {% endif %}
   <label class="champ">
     <span class="sr-only">Nouveau mot de passe</span>
     <input type="password" name="mot_de_passe" placeholder="Nouveau mot de passe" autocomplete="new-password" minlength="12" required autofocus />

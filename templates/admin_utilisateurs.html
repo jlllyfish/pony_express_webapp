@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Utilisateurs · Pony Express</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/logo.svg') }}" type="image/svg+xml" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+  </head>
+  <body class="admin">
+    <main class="admin-page">
+      <header class="admin-entete">
+        <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" />
+        <h1>Pony Express</h1>
+        <nav class="admin-onglets">
+          <a href="{{ url_for('auth.admin_utilisateurs') }}" aria-current="page">Utilisateurs</a>
+          <a href="{{ url_for('auth.admin_journal') }}">Journal</a>
+        </nav>
+        <a class="admin-retour" href="{{ url_for('index') }}">← Retour à l'application</a>
+      </header>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for categorie, message in messages %}
+          <p class="admin-message admin-message--{{ categorie }}" role="{{ 'alert' if categorie == 'erreur' else 'status' }}">{{ message }}</p>
+        {% endfor %}
+      {% endwith %}
+
+      {% if invitation %}
+      <section class="admin-carte admin-lien">
+        <h2>Lien d'invitation pour {{ invitation.email }}</h2>
+        <p>
+          {% if invitation.envoye %}Envoyé par e-mail. Vous pouvez aussi le copier :{% else %}<b>Aucun e-mail envoyé</b> : copiez ce lien et transmettez-le vous-même.{% endif %}
+          Valable 7 jours, utilisable une seule fois. Il ne sera plus affiché.
+        </p>
+        <div class="admin-lien-ligne">
+          <input id="lien-invitation" type="text" value="{{ invitation.lien }}" readonly onclick="this.select()" />
+          <button class="admin-btn" type="button" id="copier">Copier</button>
+        </div>
+      </section>
+      {% endif %}
+
+      <section class="admin-carte">
+        <h2>Inviter une personne</h2>
+        <form class="admin-ajout" method="post" action="{{ url_for('auth.admin_ajouter') }}">
+          <input type="hidden" name="csrf" value="{{ csrf() }}" />
+          <input type="email" name="email" placeholder="prenom.nom@exemple.fr" required autocomplete="off" />
+          <label><input type="checkbox" name="admin" value="1" /> Administrateur</label>
+          <button class="admin-btn" type="submit">Créer et inviter</button>
+        </form>
+      </section>
+
+      <section class="admin-carte">
+        <h2>{{ comptes|length }} compte{{ 's' if comptes|length > 1 }}</h2>
+        <table class="admin-table">
+          <thead>
+            <tr><th>Adresse</th><th>Rôle</th><th>Statut</th><th>2FA</th><th>Dernière connexion</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for c in comptes %}
+            {% set soi = c.id == moi %}
+            <tr class="{{ '' if c.actif else 'inactif' }}">
+              <td>{{ c.email }}{% if soi %}<span class="moi">(vous)</span>{% endif %}</td>
+              <td data-libelle="Rôle"><span class="badge {{ 'badge--admin' if c.admin else 'badge--user' }}">{{ 'Admin' if c.admin else 'Utilisateur' }}</span></td>
+              <td data-libelle="Statut">
+                {% if not c.actif %}<span class="badge badge--inactif">Désactivé</span>
+                {% elif not c.derniere_connexion %}<span class="badge badge--attente">Invité</span>
+                {% else %}<span class="badge badge--actif">Actif</span>{% endif %}
+              </td>
+              <td data-libelle="2FA">{% if c.totp_secret %}<span class="badge badge--actif">Activée</span>{% else %}<span class="badge badge--user">À configurer</span>{% endif %}</td>
+              <td data-libelle="Dernière connexion">{{ c.derniere_connexion|paris }}</td>
+              <td>
+                <div class="admin-actions">
+                  {% macro action(nom, libelle, classe='', confirmation='', interdit=False) %}
+                  <form method="post" action="{{ url_for('auth.admin_action', uid=c.id, action=nom) }}"
+                        {% if confirmation %}onsubmit='return confirm({{ confirmation|tojson }})'{% endif %}>
+                    <input type="hidden" name="csrf" value="{{ csrf() }}" />
+                    <button class="admin-btn admin-btn--petit {{ classe }}" type="submit" {% if interdit %}disabled title="Impossible sur votre propre compte"{% endif %}>{{ libelle }}</button>
+                  </form>
+                  {% endmacro %}
+                  {{ action('lien', 'Nouveau lien') }}
+                  {% if c.actif %}{{ action('desactiver', 'Désactiver', interdit=soi) }}{% else %}{{ action('activer', 'Activer') }}{% endif %}
+                  {% if c.admin %}{{ action('retirer-admin', 'Retirer admin', interdit=soi) }}{% else %}{{ action('admin', 'Rendre admin') }}{% endif %}
+                  {% if c.totp_secret %}{{ action('reinitialiser-2fa', 'Réinit. 2FA', confirmation='Réinitialiser la double authentification de ' ~ c.email ~ ' ? Il devra reconfigurer son téléphone.') }}{% endif %}
+                  {{ action('supprimer', 'Supprimer', 'admin-btn--danger', 'Supprimer définitivement ' ~ c.email ~ ' ?', interdit=soi) }}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </main>
+    <script>
+      const bouton = document.getElementById("copier");
+      if (bouton) {
+        bouton.addEventListener("click", async () => {
+          const champ = document.getElementById("lien-invitation");
+          try { await navigator.clipboard.writeText(champ.value); } catch { champ.select(); document.execCommand("copy"); }
+          bouton.textContent = "Copié ✓";
+        });
+      }
+    </script>
+  </body>
+</html>

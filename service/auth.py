@@ -6,29 +6,33 @@ Authentification : connexion, déconnexion, mot de passe oublié, gestion des co
   répond 401 ; une page redirige vers /connexion.
 - Formulaires protégés par un jeton CSRF stocké en session.
 - 5 essais de connexion ratés par adresse et par IP en 15 min, puis blocage.
-- Comptes gérés en ligne de commande (pas d'inscription libre) :
+- Pas d'inscription libre. Les administrateurs gèrent les comptes sur /admin/utilisateurs
+  (invitation par lien valable 7 jours, activation, rôle, suppression), ou en ligne de commande :
       flask --app app utilisateurs ajouter prenom.nom@exemple.fr
       flask --app app utilisateurs lister
       flask --app app utilisateurs desactiver / activer / supprimer <email>
   Sur Scalingo : scalingo --app <app> run flask --app app utilisateurs ajouter …
 """
 
-import getpass
+import logging
 import os
 import secrets
 import time
 from collections import defaultdict, deque
-from datetime import timedelta
+from datetime import timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import click
 from flask import (Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template,
                    request, session, url_for)
 
-from service import courriel, utilisateurs as comptes
+from service import courriel, journal, totp, utilisateurs as comptes
 
 bp = Blueprint("auth", __name__)
 
-PAGES_PUBLIQUES = {"auth.connexion", "auth.mot_de_passe_oublie", "auth.reinitialiser", "static", "favicon"}
+PAGES_PUBLIQUES = {"auth.connexion", "auth.mot_de_passe_oublie", "auth.reinitialiser", "auth.bienvenue",
+                   "auth.activer_2fa", "auth.code_2fa", "static", "favicon", "health"}
+DUREE_ETAPE_2FA = 10 * 60  # délai pour saisir le code après le mot de passe
 ESSAIS_MAX, FENETRE_ESSAIS = 5, 15 * 60
 _essais: dict = defaultdict(deque)
 
@@ -91,6 +95,21 @@ def init_app(app):
         return redirect(url_for("auth.connexion", suivant=request.path))
 
     app.cli.add_command(cli_utilisateurs)
+    _creer_premier_compte()
+
+
+def _creer_premier_compte():
+    """Amorçage sans terminal : si PREMIER_COMPTE contient un e-mail et qu'aucun compte
+    n'existe, crée ce compte avec un mot de passe aléatoire inconnu. On définit ensuite
+    le sien via « Mot de passe oublié » (lien envoyé par e-mail, ou écrit dans les logs)."""
+    email = os.environ.get("PREMIER_COMPTE", "").strip()
+    if not email or comptes.lister():
+        return
+    comptes.creer_invite(email, admin=True)
+    logging.getLogger(__name__).warning(
+        "Premier compte créé : %s. Utilisez « Mot de passe oublié » pour définir le mot de passe, "
+        "puis supprimez la variable PREMIER_COMPTE.", comptes.normaliser(email)
+    )
 
 
 # --- Pages --------------------------------------------------------------------
@@ -109,15 +128,130 @@ def connexion():
             _echec(f"email:{email}", f"ip:{ip}")
             flash("Adresse e-mail ou mot de passe incorrect.", "erreur")
             return render_template("connexion.html", email=email), 401
-        session.clear()
-        session.permanent = True
-        session["uid"] = u["id"]
-        session["accueil"] = True  # toast « Hay Prénom ! » au prochain affichage
         suivant = request.args.get("suivant", "")
-        return redirect(suivant if suivant.startswith("/") and not suivant.startswith("//") else url_for("index"))
+        suivant = suivant if suivant.startswith("/") and not suivant.startswith("//") else url_for("index")
+        if not totp.obligatoire():
+            return _ouvrir_session(u, suivant)
+        # Mot de passe OK : session « en attente du 2e facteur », sans aucun accès aux données
+        session.clear()
+        session["2fa"] = {"uid": u["id"], "t": time.time(), "suivant": suivant}
+        return redirect(url_for("auth.code_2fa" if u["totp_secret"] else "auth.activer_2fa"))
     if g.get("utilisateur"):
         return redirect(url_for("index"))
     return render_template("connexion.html", email="")
+
+
+def _ouvrir_session(u: dict, suivant: str):
+    session.clear()
+    session.permanent = True
+    session["uid"] = u["id"]
+    session["accueil"] = True  # toast « Hay Prénom ! » au prochain affichage
+    comptes.marquer_connexion(u["id"])
+    return redirect(suivant)
+
+
+def _en_attente_2fa() -> dict | None:
+    """Utilisateur dont le mot de passe vient d'être validé (moins de 10 min), sinon None."""
+    etape = session.get("2fa")
+    if not etape or time.time() - etape.get("t", 0) > DUREE_ETAPE_2FA:
+        session.pop("2fa", None)
+        return None
+    u = comptes.trouver_par_id(etape["uid"])
+    return u if u and u["actif"] else None
+
+
+def _etape_expiree():
+    flash("Étape expirée : reconnectez-vous.", "erreur")
+    return redirect(url_for("auth.connexion"))
+
+
+@bp.route("/connexion/activer-2fa", methods=["GET", "POST"])
+def activer_2fa():
+    """Premier passage : enrôlement de l'application d'authentification (obligatoire)."""
+    u = _en_attente_2fa()
+    if not u:
+        return _etape_expiree()
+    if u["totp_secret"]:
+        return redirect(url_for("auth.code_2fa"))
+    etape = session["2fa"]
+    if "secret" not in etape:
+        etape["secret"] = totp.nouveau_secret()  # pas en base tant que le premier code n'est pas validé
+        session["2fa"] = etape
+    secret = etape["secret"]
+    if request.method == "POST":
+        _verifier_csrf()
+        cle = f"2fa:{u['id']}"
+        pas = None if _bloque(cle) else totp.verifier(secret, request.form.get("code", ""), None)
+        if pas is None:
+            _echec(cle)
+            flash("Trop d'essais : reconnectez-vous dans 15 minutes." if _bloque(cle)
+                  else "Code incorrect : vérifiez l'heure de votre téléphone et réessayez.", "erreur")
+            if _bloque(cle):
+                session.pop("2fa", None)
+                return redirect(url_for("auth.connexion"))
+        else:
+            codes, empreintes = totp.generer_codes_secours()
+            comptes.maj_totp(u["id"], totp_secret=totp.chiffrer(secret), totp_dernier_pas=pas,
+                             codes_secours=empreintes)
+            reponse = _ouvrir_session(u, url_for("auth.codes_secours"))
+            session["codes_secours"] = codes
+            session["apres_codes"] = etape["suivant"]
+            return reponse
+    return render_template("activer_2fa.html", qr=totp.qr_svg(secret, u["email"]),
+                           secret=totp.secret_lisible(secret), lien_appli=totp.uri(secret, u["email"]))
+
+
+@bp.route("/connexion/code", methods=["GET", "POST"])
+def code_2fa():
+    u = _en_attente_2fa()
+    if not u:
+        return _etape_expiree()
+    if not u["totp_secret"]:
+        return redirect(url_for("auth.activer_2fa"))
+    if request.method == "POST":
+        _verifier_csrf()
+        cle = f"2fa:{u['id']}"
+        if _bloque(cle):
+            session.pop("2fa", None)
+            flash("Trop d'essais : reconnectez-vous dans 15 minutes.", "erreur")
+            return redirect(url_for("auth.connexion"))
+        saisie = request.form.get("code", "").strip()
+        suivant = session["2fa"]["suivant"]
+        if "-" in saisie:  # code de secours
+            restants = totp.utiliser_code_secours(saisie, u["codes_secours"])
+            if restants is not None:
+                comptes.maj_totp(u["id"], codes_secours=restants)
+                reponse = _ouvrir_session(u, suivant)
+                n = totp.codes_secours_restants(restants)
+                flash(f"Code de secours utilisé : il vous en reste {n}. Pensez à demander à un administrateur "
+                      "de réinitialiser votre double authentification si vous avez perdu votre téléphone.", "info")
+                return reponse
+        else:
+            secret = totp.dechiffrer(u["totp_secret"])
+            pas = totp.verifier(secret, saisie, u["totp_dernier_pas"]) if secret else None
+            if pas is not None:
+                comptes.maj_totp(u["id"], totp_dernier_pas=pas)
+                return _ouvrir_session(u, suivant)
+            if not secret:
+                logging.getLogger(__name__).error("Secret TOTP illisible pour %s (TOTP_CLE / SECRET_KEY changée ?)",
+                                                  u["email"])
+                flash("Double authentification illisible : demandez à un administrateur de la réinitialiser.", "erreur")
+                return render_template("code_2fa.html")
+        _echec(cle)
+        flash("Code incorrect.", "erreur")
+    return render_template("code_2fa.html")
+
+
+@bp.route("/connexion/codes-de-secours", methods=["GET", "POST"])
+def codes_secours():
+    """Affichage unique des codes de secours, juste après l'enrôlement."""
+    if request.method == "POST":
+        _verifier_csrf()
+        return redirect(session.pop("apres_codes", None) or url_for("index"))
+    codes = session.pop("codes_secours", None)
+    if not codes:
+        return redirect(url_for("index"))
+    return render_template("codes_secours.html", codes=codes)
 
 
 @bp.post("/deconnexion")
@@ -151,10 +285,21 @@ def mot_de_passe_oublie():
 
 @bp.route("/reinitialiser/<jeton>", methods=["GET", "POST"])
 def reinitialiser(jeton):
-    u = comptes.utilisateur_du_jeton(jeton, current_app.secret_key)
+    return _choisir_mot_de_passe(jeton, "reinitialisation")
+
+
+@bp.route("/bienvenue/<jeton>", methods=["GET", "POST"])
+def bienvenue(jeton):
+    """Lien d'invitation (7 jours) : la personne invitée choisit son premier mot de passe."""
+    return _choisir_mot_de_passe(jeton, "invitation")
+
+
+def _choisir_mot_de_passe(jeton: str, usage: str):
+    u = comptes.utilisateur_du_jeton(jeton, current_app.secret_key, usage)
     if not u:
         flash("Ce lien n'est plus valide : demandez-en un nouveau.", "erreur")
         return redirect(url_for("auth.mot_de_passe_oublie"))
+    invitation = usage == "invitation"
     if request.method == "POST":
         _verifier_csrf()
         mdp, confirmation = request.form.get("mot_de_passe", ""), request.form.get("confirmation", "")
@@ -162,11 +307,117 @@ def reinitialiser(jeton):
             "Les deux mots de passe ne correspondent pas." if mdp != confirmation else None)
         if erreur:
             flash(erreur, "erreur")
-            return render_template("reinitialiser.html", jeton=jeton), 400
+            return render_template("reinitialiser.html", invitation=invitation, email=u["email"]), 400
         comptes.changer_mot_de_passe(u["id"], mdp)
-        flash("Mot de passe modifié : vous pouvez vous connecter.", "info")
+        flash("Mot de passe enregistré : vous pouvez vous connecter.", "info")
         return redirect(url_for("auth.connexion"))
-    return render_template("reinitialiser.html", jeton=jeton)
+    return render_template("reinitialiser.html", invitation=invitation, email=u["email"])
+
+
+# --- Administration des comptes -------------------------------------------------
+
+@bp.app_template_filter("paris")
+def heure_paris(dt) -> str:
+    """Date stockée en UTC (naïve en SQLite) -> « jj/mm/aaaa hh:mm » heure de Paris."""
+    if not dt:
+        return "—"
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(ZoneInfo("Europe/Paris")).strftime("%d/%m/%Y %H:%M")
+
+def _admin_requis():
+    if not (g.get("utilisateur") and g.utilisateur.get("admin")):
+        abort(403)
+
+
+def _envoyer_invitation(u: dict) -> dict:
+    """Crée un lien d'invitation (7 jours), l'envoie par e-mail si SMTP est configuré,
+    et le retourne pour affichage unique à l'administrateur (à transmettre soi-même sinon)."""
+    lien = url_for("auth.bienvenue",
+                   jeton=comptes.jeton_reinitialisation(u, current_app.secret_key, "invitation"), _external=True)
+    envoye = bool(os.environ.get("SMTP_HOST"))
+    try:
+        courriel.envoyer(
+            u["email"],
+            "Pony Express : votre accès",
+            f"Bonjour {comptes.prenom_depuis_email(u['email'])},\n\n"
+            f"Un compte Pony Express vient d'être créé pour vous. Pour choisir votre mot de passe, "
+            f"ouvrez ce lien (valable 7 jours) :\n{lien}\n",
+        )
+    except Exception:  # noqa: BLE001 - SMTP en panne : l'administrateur transmet le lien lui-même
+        logging.getLogger(__name__).exception("Envoi de l'invitation impossible")
+        envoye = False
+    return {"email": u["email"], "lien": lien, "envoye": envoye}
+
+
+@bp.get("/admin/utilisateurs")
+def admin_utilisateurs():
+    _admin_requis()
+    return render_template(
+        "admin_utilisateurs.html",
+        comptes=comptes.lister(),
+        moi=g.utilisateur["id"],
+        invitation=session.pop("invitation", None),
+    )
+
+
+@bp.get("/admin/journal")
+def admin_journal():
+    _admin_requis()
+    filtre_utilisateur = request.args.get("utilisateur") or None
+    filtre_resultat = request.args.get("resultat") or None
+    return render_template(
+        "admin_journal.html",
+        entrees=journal.lister(utilisateur=filtre_utilisateur, resultat=filtre_resultat),
+        comptes=comptes.lister(),
+        filtre_utilisateur=filtre_utilisateur,
+        filtre_resultat=filtre_resultat,
+    )
+
+
+@bp.post("/admin/utilisateurs")
+def admin_ajouter():
+    _admin_requis()
+    _verifier_csrf()
+    try:
+        u = comptes.creer_invite(request.form.get("email", ""), admin=request.form.get("admin") == "1")
+    except ValueError as exc:
+        flash(str(exc), "erreur")
+        return redirect(url_for("auth.admin_utilisateurs"))
+    session["invitation"] = _envoyer_invitation(u)
+    flash(f"Compte créé : {u['email']}", "info")
+    return redirect(url_for("auth.admin_utilisateurs"))
+
+
+@bp.post("/admin/utilisateurs/<int:uid>/<action>")
+def admin_action(uid, action):
+    _admin_requis()
+    _verifier_csrf()
+    u = comptes.trouver_par_id(uid)
+    if not u:
+        abort(404)
+    if uid == g.utilisateur["id"] and action in {"desactiver", "supprimer", "retirer-admin"}:
+        flash("Vous ne pouvez pas faire cela sur votre propre compte.", "erreur")
+        return redirect(url_for("auth.admin_utilisateurs"))
+    if action == "lien":
+        session["invitation"] = _envoyer_invitation(u)
+        flash(f"Nouveau lien pour {u['email']} (l'ancien reste valable jusqu'au changement de mot de passe).", "info")
+    elif action in {"activer", "desactiver"}:
+        comptes.activer(u["email"], action == "activer")
+        flash(f"Compte {'activé' if action == 'activer' else 'désactivé'} : {u['email']}", "info")
+    elif action in {"admin", "retirer-admin"}:
+        comptes.definir_admin(u["email"], action == "admin")
+        flash(f"{u['email']} : {'administrateur' if action == 'admin' else 'utilisateur'}", "info")
+    elif action == "reinitialiser-2fa":
+        comptes.reinitialiser_totp(uid)
+        flash(f"Double authentification réinitialisée : {u['email']} configurera son téléphone "
+              "à la prochaine connexion.", "info")
+    elif action == "supprimer":
+        comptes.supprimer(u["email"])
+        flash(f"Compte supprimé : {u['email']}", "info")
+    else:
+        abort(404)
+    return redirect(url_for("auth.admin_utilisateurs"))
 
 
 def accueil_a_afficher() -> str | None:
@@ -185,12 +436,14 @@ def cli_utilisateurs():
 
 @cli_utilisateurs.command("ajouter")
 @click.argument("email")
-def cli_ajouter(email):
-    mdp = getpass.getpass("Mot de passe (12 caractères min.) : ")
-    if mdp != getpass.getpass("Confirmation : "):
-        raise click.ClickException("Les deux mots de passe ne correspondent pas.")
+@click.option("--admin", is_flag=True, help="Donne accès à la page de gestion des comptes.")
+def cli_ajouter(email, admin):
+    # click.prompt écrit sur la sortie standard : l'invite s'affiche aussi via `scalingo run`
+    # (getpass écrit sur /dev/tty, invisible depuis un terminal Windows)
+    mdp = click.prompt("Mot de passe (12 caractères min.)", hide_input=True,
+                       confirmation_prompt="Confirmation")
     try:
-        comptes.creer(email, mdp)
+        comptes.creer(email, mdp, admin=admin)
     except ValueError as exc:
         raise click.ClickException(str(exc))
     click.echo(f"Compte créé : {comptes.normaliser(email)}")
@@ -199,9 +452,27 @@ def cli_ajouter(email):
 @cli_utilisateurs.command("lister")
 def cli_lister():
     for u in comptes.lister():
-        etat = "actif" if u["actif"] else "désactivé"
+        etat = ("actif" if u["actif"] else "désactivé") + (" · admin" if u["admin"] else "")
         derniere = u["derniere_connexion"].strftime("%d/%m/%Y %H:%M") if u["derniere_connexion"] else "jamais"
-        click.echo(f"{u['email']:<45} {etat:<10} dernière connexion : {derniere}")
+        click.echo(f"{u['email']:<45} {etat:<18} dernière connexion : {derniere}")
+
+
+@cli_utilisateurs.command("reinitialiser-2fa")
+@click.argument("email")
+def cli_reinitialiser_2fa(email):
+    u = comptes.trouver(email)
+    if not u:
+        raise click.ClickException("Compte introuvable.")
+    comptes.reinitialiser_totp(u["id"])
+    click.echo("Double authentification réinitialisée : nouvel enrôlement à la prochaine connexion.")
+
+
+@cli_utilisateurs.command("admin")
+@click.argument("email")
+@click.option("--retirer", is_flag=True, help="Retire le rôle administrateur.")
+def cli_admin(email, retirer):
+    ok = comptes.definir_admin(email, not retirer)
+    click.echo(("Rôle administrateur " + ("retiré." if retirer else "donné.")) if ok else "Compte introuvable.")
 
 
 @cli_utilisateurs.command("desactiver")

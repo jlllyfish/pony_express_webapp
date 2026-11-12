@@ -1,0 +1,38 @@
+{% extends "auth_base.html" %}
+{% block titre %}Double authentification{% endblock %}
+{% block formulaire %}
+  <p class="consigne">
+    <b>Sécurisez votre compte.</b> Ouvrez votre application d'authentification
+    (FreeOTP, Google Authenticator…), touchez <b>+</b> puis <b>Scanner un code QR</b>.
+  </p>
+  <div class="qr">{{ qr|safe }}</div>
+
+  <a class="bouton-appli" href="{{ lien_appli }}">Vous êtes sur votre téléphone ? Ajouter à l'application</a>
+
+  <details class="secret">
+    <summary>Le scan ne fonctionne pas ? Saisie manuelle</summary>
+    <ol>
+      <li>Dans l'application, touchez <b>+</b> puis <b>Saisir une clé</b>
+        <span class="nuance">Google : « Saisir une clé de configuration » · FreeOTP : icône clé</span></li>
+      <li>Nom du compte : <b>Pony Express</b></li>
+      <li>Clé :
+        <span class="cle"><code id="cle-totp">{{ secret }}</code>
+        <button type="button" class="copier-cle" id="copier-cle">Copier</button></span>
+      </li>
+      <li>Type : <b>basé sur l'heure</b> (TOTP), puis validez.</li>
+    </ol>
+  </details>
+
+  <label class="champ">
+    <span class="sr-only">Code à 6 chiffres</span>
+    <input type="text" name="code" placeholder="Code à 6 chiffres" inputmode="numeric" autocomplete="one-time-code"
+           pattern="[0-9 ]{6,7}" maxlength="7" required autofocus />
+  </label>
+  <button type="submit">Activer</button>
+  <script>
+    document.getElementById("copier-cle").addEventListener("click", async (e) => {
+      const cle = document.getElementById("cle-totp").textContent.replace(/\s/g, "");
+      try { await navigator.clipboard.writeText(cle); e.target.textContent = "Copiée ✓"; } catch {}
+    });
+  </script>
+{% endblock %}

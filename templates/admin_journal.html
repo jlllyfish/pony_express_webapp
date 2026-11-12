@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Journal · Pony Express</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/logo.svg') }}" type="image/svg+xml" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+  </head>
+  <body class="admin">
+    <main class="admin-page">
+      <header class="admin-entete">
+        <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" />
+        <h1>Pony Express</h1>
+        <nav class="admin-onglets">
+          <a href="{{ url_for('auth.admin_utilisateurs') }}">Utilisateurs</a>
+          <a href="{{ url_for('auth.admin_journal') }}" aria-current="page">Journal</a>
+        </nav>
+        <a class="admin-retour" href="{{ url_for('index') }}">← Retour à l'application</a>
+      </header>
+
+      {% set libelles = {
+        "pedagogique": "Contrat pédagogique", "attestation": "Attestation de présence", "financier": "Contrat financier",
+        "pedagogique_groupe": "Contrat pédagogique (groupe)", "attestation_groupe": "Attestation (groupe)",
+        "financier_groupe": "Contrat financier (groupe)", "pedagogique_personnel": "Contrat pédagogique (personnel)",
+        "attestation_personnel": "Attestation (personnel)", "financier_personnel": "Contrat financier (personnel)",
+      } %}
+
+      <section class="admin-carte">
+        <h2>Envois vers DN et téléchargements</h2>
+        <form class="admin-filtres" method="get">
+          <select name="utilisateur" onchange="this.form.submit()" aria-label="Utilisateur">
+            <option value="">Tous les utilisateurs</option>
+            {% for c in comptes %}<option value="{{ c.email }}" {{ 'selected' if c.email == filtre_utilisateur }}>{{ c.email }}</option>{% endfor %}
+          </select>
+          <select name="resultat" onchange="this.form.submit()" aria-label="Résultat">
+            <option value="">Tous les résultats</option>
+            <option value="ok" {{ 'selected' if filtre_resultat == 'ok' }}>Réussis</option>
+            <option value="erreur" {{ 'selected' if filtre_resultat == 'erreur' }}>En erreur</option>
+          </select>
+          {% if filtre_utilisateur or filtre_resultat %}<a href="{{ url_for('auth.admin_journal') }}">Effacer les filtres</a>{% endif %}
+        </form>
+      </section>
+
+      <section class="admin-carte">
+        {% if entrees %}
+        <table class="admin-table">
+          <thead>
+            <tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Document</th><th>Dossier</th><th>Résultat</th></tr>
+          </thead>
+          <tbody>
+            {% for e in entrees %}
+            <tr>
+              <td>{{ e.horodatage|paris }}</td>
+              <td data-libelle="Par">{{ e.utilisateur }}</td>
+              <td data-libelle="Action">{{ 'Envoi DN' if e.action == 'envoi' else 'Téléchargement' }}</td>
+              <td data-libelle="Document">{{ libelles.get(e.document, e.document or '—') }}</td>
+              <td data-libelle="Dossier">{{ e.dossier or '—' }}</td>
+              <td data-libelle="Résultat">
+                <span class="badge {{ 'badge--ok' if e.resultat == 'ok' else 'badge--erreur' }}">{{ 'OK' if e.resultat == 'ok' else 'Erreur' }}</span>
+              </td>
+            </tr>
+            {% if e.message %}<tr><td></td><td class="message" colspan="5">{{ e.message|striptags }}</td></tr>{% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="admin-vide">{{ entrees|length }} dernière{{ 's' if entrees|length > 1 }} entrée{{ 's' if entrees|length > 1 }} (300 au maximum, conservées 1 an).</p>
+        {% else %}
+        <p class="admin-vide">Aucune entrée pour l'instant.</p>
+        {% endif %}
+      </section>
+    </main>
+  </body>
+</html>

@@ -12,8 +12,12 @@
 
   let allDossiers = [];
   const selected = new Set();
-  let filterKit = "tous";
-  let filterFinancier = "tous";
+  // Filtre d'envoi du document de l'onglet actif : tous / envoye / a_envoyer
+  let filterStatut = "tous";
+  // Filtre global (synthèse) : "" / "complets" / "incomplets"
+  let filterComplet = "";
+  // Affichage : "cartes" ou "liste" (mémorisé par page dans le navigateur)
+  let modeAffichage = "cartes";
   // Document traité par les boutons Générer / Envoyer
   let documentActif = "pedagogique";
   // Page affichée : "apprenants" (démarche 128447) ou "groupes" (démarche 156967)
@@ -24,23 +28,23 @@
       // document par défaut (le sélecteur permet de choisir le financier)
       // choix du sélecteur « Document à traiter » -> document réel
       documents: { pedagogique: "pedagogique", financier: "financier" },
-      libellePedagogique: "Kit péda + attestation",
-      titre: "Mobilités Apprenant",
-      recherche: "Nom du participant",
+      libellePedagogique: "Kit pédagogique",
+      titre: "Mobilités des apprenants",
+      recherche: "Rechercher",
     },
     groupes: {
       api: "/api/groupes",
       documents: { pedagogique: "pedagogique_groupe", financier: "financier_groupe" },
-      libellePedagogique: "Contrat péda + attestation",
+      libellePedagogique: "Contrat pédagogique",
       titre: "Mobilités de groupe",
-      recherche: "Centre constitutif",
+      recherche: "Rechercher",
     },
     personnel: {
       api: "/api/personnel",
       documents: { pedagogique: "pedagogique_personnel", financier: "financier_personnel" },
-      libellePedagogique: "Kit péda + attestation",
+      libellePedagogique: "Kit pédagogique",
       titre: "Mobilités du personnel",
-      recherche: "Nom du participant",
+      recherche: "Rechercher",
     },
     experts: {
       api: null,
@@ -126,6 +130,15 @@
     search: document.getElementById("search-nom"),
     countVisible: document.getElementById("count-visible"),
     countTotal: document.getElementById("count-total"),
+    countATraiter: document.getElementById("count-a-traiter"),
+    selNombre: document.getElementById("sel-nombre"),
+    selCountBis: document.querySelector(".sel-count-bis"),
+    barreActions: document.getElementById("barre-actions"),
+    btnTout: document.getElementById("btn-tout"),
+    btnAucun: document.getElementById("btn-aucun"),
+    vueCartes: document.getElementById("vue-cartes"),
+    vueListe: document.getElementById("vue-liste"),
+    statutLibelle: document.getElementById("filtre-statut-libelle"),
     btnGenerate: document.getElementById("btn-generate"),
     selCount: document.getElementById("sel-count"),
     btnRefresh: document.getElementById("btn-refresh"),
@@ -255,14 +268,17 @@
     const etab = el.filterEtab.value;
     if (etab && dossier.etablissement !== etab) return false;
 
-    if (filterKit === "envoye" && !dossier.envoye_pedagogique) return false;
-    if (filterKit === "a_envoyer" && dossier.envoye_pedagogique) return false;
-    if (filterFinancier === "envoye" && !dossier.envoye_financier) return false;
-    if (filterFinancier === "a_envoyer" && dossier.envoye_financier)
-      return false;
+    const complet = dossier.envoye_pedagogique && dossier.envoye_financier;
+    if (filterComplet === "complets" && !complet) return false;
+    if (filterComplet === "incomplets" && complet) return false;
+    const envoye = Boolean(dossier[DOCUMENTS[documentActif].champ]);
+    if (filterStatut === "envoye" && !envoye) return false;
+    if (filterStatut === "a_envoyer" && envoye) return false;
 
     const query = el.search.value.trim().toLowerCase();
     if (!query) return true;
+    // numéro de dossier (saisie de chiffres) : le numéro contient la saisie
+    if (/^\d+$/.test(query)) return String(dossier.dossier_number).includes(query);
     // groupes : le centre constitutif contient la saisie
     if (vue === "groupes") return (dossier.titre || "").toLowerCase().includes(query);
     // apprenants : recherche "starts with" sur nom ou prénom
@@ -288,177 +304,207 @@
     return ` <span class="card-duree">(${Math.round((f - d) / 86400000) + 1} j)</span>`;
   }
 
-  // Tuile d'une mobilité de groupe
-  function cardGroupe(g) {
-    const complet = g.envoye_pedagogique && g.envoye_financier;
-    const doc = DOCUMENTS[documentActif];
-    const statut = g[doc.champ]
-      ? "envoye"
-      : (g.statuts || {})[documentActif] || "non_genere";
-    const downloadLink =
-      statut !== "non_genere"
-        ? doc.pdfs
-            .map(
-              ([pdf, nom]) =>
-                `<a class="card-download" href="/api/kits/${g.dossier_number}/download?document=${pdf}">Télécharger le PDF<br>(${nom})</a>`,
-            )
-            .join("")
-        : "";
-    const checked = selected.has(String(g.dossier_number)) ? "checked" : "";
-    const activite =
-      g.date_debut_activite || g.date_fin_activite
-        ? `${g.date_debut_activite || "?"} → ${g.date_fin_activite || "?"}${duree(g.date_debut_activite, g.date_fin_activite)}`
-        : "";
-    const trajet =
-      g.date_trajet_aller || g.date_trajet_retour
-        ? `Trajet ${g.date_trajet_aller || "?"} → ${g.date_trajet_retour || "?"}`
-        : "";
-    const svg = (paths, cls = "date-icon") =>
-      `<svg width="14" height="14" class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
-    const calendarIcon = svg('<path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/>');
-    const etabIcon = svg('<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>', "etab-icon");
-    const usersIcon = '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>';
-    const accompIcon = '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>';
-    const coche = (ok) =>
-      ok
-        ? `<svg width="16" height="16" class="check-icon is-done" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" fill="currentColor"/><path d="M6.3 10.3l2.3 2.3 4.7-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-        : `<svg width="16" height="16" class="check-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6"/></svg>`;
+  // ---------------------------------------------------------------------------
+  // Cartes et lignes (affichage cartes / liste)
+  // ---------------------------------------------------------------------------
+  const svg = (paths, taille = 16) =>
+    `<svg width="${taille}" height="${taille}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+  const ICO = {
+    calendrier: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    avion: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+    groupe: '<path d="M17 21a5 5 0 00-10 0"/><path d="M22 10.5a3.5 3.5 0 00-5.507-2.868"/><path d="M7.507 7.632A3.5 3.5 0 002 10.5"/><circle cx="12" cy="13" r="3"/><circle cx="18.5" cy="4.5" r="2.5"/><circle cx="5.5" cy="4.5" r="2.5"/>',
+    personne: '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+    maison: '<path d="M3 10.5 12 3l9 7.5V21H3z"/>',
+    badge: '<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>',
+    lieu: '<path d="M20 10c0 4.99-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+    telecharger: '<path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+    coche: '<path d="M5 12l4 4 10-10"/>',
+    bus: '<path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>',
+    bateau: '<path d="M12 10.189V14"/><path d="M12 2v3"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-8.188-3.639a2 2 0 0 0-1.624 0L3 14a11.6 11.6 0 0 0 2.81 7.76"/><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>',
+    train: '<path d="M8 3.1V7a4 4 0 0 0 8 0V3.1"/><path d="m9 15-1-1"/><path d="m15 15 1-1"/><path d="M9 19c-2.8 0-5-2.2-5-5v-4a8 8 0 0 1 16 0v4c0 2.8-2.2 5-5 5Z"/><path d="m8 19-2 3"/><path d="m16 19 2 3"/>',
+    voiture: '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>',
+    trajet: '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+  };
+  // Type de transport (colonne Grist type_de_transport) -> icône + libellé court
+  function transport(type) {
+    const t = (type || "").toLowerCase();
+    if (!t) return { ic: ICO.trajet, court: "" };
+    if (t.startsWith("autocar")) return { ic: ICO.bus, court: "autocar" };
+    if (t.startsWith("avion")) return { ic: ICO.avion, court: "avion" };
+    if (t.startsWith("bateau")) return { ic: ICO.bateau, court: "bateau" };
+    if (t.startsWith("train")) return { ic: ICO.train, court: "train" };
+    if (t.startsWith("covoiturage")) return { ic: ICO.voiture, court: "covoiturage" };
+    if (t.includes("location")) return { ic: ICO.voiture, court: "location" };
+    if (t.includes("eplefpa")) return { ic: ICO.voiture, court: "EPLEFPA" };
+    if (t.startsWith("véhicule") || t.startsWith("vehicule")) return { ic: ICO.voiture, court: "véhicule perso." };
+    return { ic: ICO.trajet, court: type };
+  }
+  const MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
 
-    return `
-      <article class="card" data-dossier="${g.dossier_number}">
-        <div class="card-avatar card-avatar--groupe${complet ? " is-complet" : ""}" aria-hidden="true">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${usersIcon}</svg>
-        </div>
-        <div class="card-body">
-          <div class="card-header-row">
-            <h3 class="card-title">${g.titre || "Centre non renseigné"}</h3>
-            <span class="pill-pays-wrap" data-full="${g.pays_accueil || ""}">
-              <span class="pill-pays">${g.pays_accueil || "Pays ?"}</span>
-            </span>
-          </div>
-          <hr class="card-divider">
-
-          <a class="card-sub card-dossier-link"
-             href="https://demarche.numerique.gouv.fr/procedures/${g.demarche}/a-suivre/dossiers/${g.dossier_number}"
-             target="_blank" rel="noopener noreferrer">Dossier ${g.dossier_number}</a>
-
-          ${activite ? `<p class="card-dates">${calendarIcon}${activite}</p>` : ""}
-          ${trajet ? `<p class="card-dates card-dates--soft">${calendarIcon}${trajet}</p>` : ""}
-
-          <div class="card-effectifs">
-            <p class="card-dates">${svg(usersIcon)}${g.effectif ?? "?"} apprenant${g.effectif > 1 ? "s" : ""}</p>
-            <p class="card-dates">${svg(accompIcon)}Accompagnateurs : ${g.accompagnateurs || "?"}</p>
-          </div>
-
-          <div class="card-checks">
-            <span class="check-item">${coche(g.envoye_pedagogique)} Contrat pédagogique et attestation</span>
-            <span class="check-item">${coche(g.envoye_financier)} Contrat financier</span>
-          </div>
-        </div>
-        ${downloadLink}
-        <div class="card-status-bar ${complet ? "is-envoye" : g.envoye_pedagogique || g.envoye_financier ? "is-genere" : ""}"></div>
-        <p class="card-etablissement">${etabIcon}${g.etablissement}</p>
-        <label class="card-select">
-          <input type="checkbox" data-dossier="${g.dossier_number}" ${checked}
-                 aria-label="Sélectionner le dossier ${g.dossier_number}">
-        </label>
-      </article>
-    `;
+  // « 19 – 23 oct. 2026 », « 28 oct. – 3 nov. 2026 » ; texte brut si une date manque
+  function periode(debut, fin, avecAnnee = true) {
+    const d = parseDate(debut);
+    const f = parseDate(fin);
+    if (d === null || f === null) return [debut, fin].filter(Boolean).join(" → ") || "";
+    const D = new Date(d);
+    const F = new Date(f);
+    const an = avecAnnee ? ` ${F.getUTCFullYear()}` : "";
+    if (D.getUTCMonth() === F.getUTCMonth() && D.getUTCFullYear() === F.getUTCFullYear())
+      return `${D.getUTCDate()} – ${F.getUTCDate()} ${MOIS[F.getUTCMonth()]}${an}`;
+    const anD = D.getUTCFullYear() !== F.getUTCFullYear() && avecAnnee ? ` ${D.getUTCFullYear()}` : "";
+    return `${D.getUTCDate()} ${MOIS[D.getUTCMonth()]}${anD} – ${F.getUTCDate()} ${MOIS[F.getUTCMonth()]}${an}`;
+  }
+  function nbJours(debut, fin) {
+    const d = parseDate(debut);
+    const f = parseDate(fin);
+    if (d === null || f === null || f < d) return "";
+    const n = Math.round((f - d) / 86400000) + 1;
+    return `${n} jour${n > 1 ? "s" : ""}`;
   }
 
-  function cardTemplate(dossier) {
-    if (vue === "groupes") return cardGroupe(dossier);
-    // Statut du document actuellement choisi dans le sélecteur
-    const statut = dossier[DOCUMENTS[documentActif].champ]
-      ? "envoye"
-      : (dossier.statuts || {})[documentActif] || "non_genere";
-    const statusClass =
-      statut === "envoye" ? "is-envoye" : statut === "genere" ? "is-genere" : "";
-    const checked = selected.has(String(dossier.dossier_number))
-      ? "checked"
-      : "";
-    const downloadLink =
-      statut !== "non_genere"
-        ? DOCUMENTS[documentActif].pdfs
-            .map(
-              ([pdf, nom]) =>
-                `<a class="card-download" href="/api/kits/${dossier.dossier_number}/download?document=${pdf}">Télécharger le PDF<br>(${nom})</a>`,
-            )
-            .join("")
-        : "";
+  // Documents de l'onglet actif : à générer / généré (cliquable) / envoyé (+ cliquable si généré)
+  function documentsHtml(d) {
+    const doc = DOCUMENTS[documentActif];
+    const envoye = Boolean(d[doc.champ]);
+    const genere = ((d.statuts || {})[documentActif] || "non_genere") !== "non_genere";
+    return doc.pdfs.map(([pdf, nom]) => {
+      const libelle = nom.charAt(0).toUpperCase() + nom.slice(1);
+      const badge = envoye ? '<em class="doc-envoye">Envoyé</em>' : "";
+      if (genere) {
+        return `<a class="doc is-genere${envoye ? " is-envoye" : ""}" href="/api/kits/${d.dossier_number}/download?document=${pdf}"
+                   title="Télécharger le PDF (${nom})">
+                  <span class="doc-ic">${svg(envoye ? ICO.coche : ICO.telecharger, 12)}</span><span class="doc-nom">${libelle}</span>${badge}</a>`;
+      }
+      return `<span class="doc${envoye ? " is-envoye" : ""}">
+                <span class="doc-ic">${envoye ? svg(ICO.coche, 12) : ""}</span><span class="doc-nom">${libelle}</span>${badge}</span>`;
+    }).join("");
+  }
 
-    const activite =
-      dossier.date_debut_activite || dossier.date_fin_activite
-        ? `${dossier.date_debut_activite || "?"} → ${dossier.date_fin_activite || "?"}${duree(dossier.date_debut_activite, dossier.date_fin_activite)}`
-        : "";
-    const trajet =
-      dossier.date_trajet_aller || dossier.date_trajet_retour
-        ? `Trajet ${dossier.date_trajet_aller || "?"} → ${dossier.date_trajet_retour || "?"}`
-        : "";
+  function lienDossier(d) {
+    return `<a class="lien-dossier" href="https://demarche.numerique.gouv.fr/procedures/${d.demarche || 128447}/a-suivre/dossiers/${d.dossier_number}"
+              target="_blank" rel="noopener noreferrer">Dossier <span class="num-dossier">${d.dossier_number}</span></a>`;
+  }
 
-    const calendarIcon = `<svg width="14" height="14" class="date-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/>
-      </svg>`;
-    const etabIcon = `<svg width="14" height="14" class="etab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-      </svg>`;
+  // Données affichées selon la page : titre, avatar, deux paires d'infos
+  function contenu(d) {
+    const dates = { ic: ICO.calendrier, haut: periode(d.date_debut_activite, d.date_fin_activite) || "Dates ?", bas: nbJours(d.date_debut_activite, d.date_fin_activite) };
+    const tr = transport(d.type_transport);
+    const basTrajet = tr.court ? `trajet · ${tr.court}` : "trajet";
+    const trajet = d.date_trajet_aller || d.date_trajet_retour
+      ? { ic: tr.ic, haut: periode(d.date_trajet_aller, d.date_trajet_retour, false), bas: basTrajet, trajet: true, titre: d.type_transport }
+      : null;
+    if (vue === "groupes") {
+      return {
+        titre: d.titre || "Centre non renseigné",
+        avatar: svg(ICO.groupe, 20),
+        infos: [dates, trajet || { ic: tr.ic, haut: "Non renseigné", bas: basTrajet, trajet: true, titre: d.type_transport },
+          { ic: ICO.groupe, haut: d.effectif ?? "?", bas: `apprenant${d.effectif > 1 ? "s" : ""}` },
+          { ic: ICO.personne, haut: d.accompagnateurs || "?", bas: "accompagnateurs" }],
+        resume: `${d.effectif ?? "?"} + ${d.accompagnateurs || "?"}`,
+        resumeBas: "apprenants + acc.",
+      };
+    }
+    const nom = d.nom || d.prenom ? `${d.nom || ""} ${d.prenom || ""}`.trim() : "Nom inconnu";
+    const infos = [dates];
+    if (vue === "personnel") {
+      infos.push({ ic: ICO.badge, haut: d.type_mobilite || "Type ?", bas: "type de mobilité" });
+      if (d.ville_accueil) infos.push({ ic: ICO.lieu, haut: d.ville_accueil, bas: "ville d'accueil" });
+      if (d.type_transport) infos.push({ ic: tr.ic, haut: d.type_transport, bas: "transport", trajet: true });
+    } else if (trajet) infos.push(trajet);
+    return {
+      titre: nom,
+      avatar: initiales(d),
+      infos,
+      resume: vue === "personnel" ? d.type_mobilite || "" : trajet ? trajet.haut : "",
+      resumeBas: vue === "personnel" ? "type de mobilité" : trajet ? "trajet" : "",
+    };
+  }
 
-    const iconNotSent = `<svg width="16" height="16" class="check-icon" viewBox="0 0 20 20" fill="none">
-        <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6"/>
-      </svg>`;
-    const iconSent = `<svg width="16" height="16" class="check-icon is-done" viewBox="0 0 20 20" fill="none">
-        <circle cx="10" cy="10" r="8" fill="currentColor"/>
-        <path d="M6.3 10.3l2.3 2.3 4.7-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>`;
+  // Vue globale d'un dossier : les deux documents, quel que soit l'onglet actif
+  // Tous les documents du dossier envoyés (statuts Grist, recalés sur DN par « Vérifier avec DN »)
+  const estComplet = (d) => Boolean(d.envoye_pedagogique && d.envoye_financier);
 
+  function etatGlobal(d) {
+    const complet = estComplet(d);
+    if (complet) {
+      return `<span class="etat-global is-complet" title="Tous les documents ont été envoyés">${svg(ICO.coche, 12)}Complet</span>`;
+    }
+    const pastille = (ok, court, long) =>
+      `<span class="etat-doc${ok ? " is-ok" : ""}" title="${long} : ${ok ? "envoyé" : "à envoyer"}">${ok ? svg(ICO.coche, 10) : ""}${court}</span>`;
+    return `<span class="etat-global">${pastille(d.envoye_pedagogique, "Péda", VUES[vue].libellePedagogique)}${pastille(d.envoye_financier, "Fin.", "Contrat financier")}</span>`;
+  }
+
+  // Badges de l'en-tête et compteurs des onglets (vue globale des envois)
+  function renderSynthese() {
+    const total = allDossiers.length;
+    const peda = allDossiers.filter((d) => d.envoye_pedagogique).length;
+    const fin = allDossiers.filter((d) => d.envoye_financier).length;
+    const complets = allDossiers.filter((d) => d.envoye_pedagogique && d.envoye_financier).length;
+    document.getElementById("count-complets").textContent = complets;
+    document.getElementById("libelle-complets").textContent = complets > 1 ? "complets" : "complet";
+    document.getElementById("libelle-dossiers").textContent = total > 1 ? "dossiers" : "dossier";
+    document.getElementById("compte-pedagogique").textContent = total ? `${peda}/${total}` : "";
+    document.getElementById("compte-financier").textContent = total ? `${fin}/${total}` : "";
+    const bc = document.getElementById("badge-complets");
+    bc.classList.toggle("is-active", filterComplet === "complets");
+    bc.setAttribute("aria-pressed", filterComplet === "complets");
+    const ba = document.getElementById("badge-a-traiter");
+    ba.classList.toggle("is-active", filterStatut === "a_envoyer");
+    ba.setAttribute("aria-pressed", filterStatut === "a_envoyer");
+  }
+
+  function carteHtml(d) {
+    const c = contenu(d);
+    const sel = selected.has(String(d.dossier_number));
+    const infos = c.infos.map((i) => `<div class="info${i.trajet ? " info--trajet" : ""}"${i.titre ? ` title="${i.titre}"` : ""}>${svg(i.ic)}<div><b>${i.haut}</b>${i.bas ? `<small>${i.bas}</small>` : ""}</div></div>`).join("");
     return `
-      <article class="card" data-dossier="${dossier.dossier_number}">
-        <div class="card-avatar${dossier.envoye_pedagogique && dossier.envoye_financier ? " is-complet" : ""}"
-             ${dossier.envoye_pedagogique && dossier.envoye_financier ? 'title="Les deux contrats ont été envoyés"' : ""}>${initiales(dossier)}</div>
-        <div class="card-body">
-          <div class="card-header-row">
-            <h3 class="card-title">${
-              dossier.nom || dossier.prenom
-                ? `${dossier.nom || ""}<br>${dossier.prenom || ""}`
-                : "Nom inconnu"
-            }</h3>
-            <span class="pill-pays-wrap" data-full="${dossier.pays_accueil || ""}">
-              <span class="pill-pays">${dossier.pays_accueil || "Pays ?"}</span>
-            </span>
+      <article class="carte${sel ? " is-selected" : ""}" data-dossier="${d.dossier_number}">
+        <div class="carte-entete">
+          <input class="carte-coche" type="checkbox" data-dossier="${d.dossier_number}" ${sel ? "checked" : ""}
+                 aria-label="Sélectionner le dossier ${d.dossier_number}">
+          <span class="carte-avatar${estComplet(d) ? " is-complet" : ""}" aria-hidden="true">${c.avatar}</span>
+          <div class="carte-nom">
+            <h3>${c.titre}</h3>
+            <p class="carte-sous-titre">${lienDossier(d)}</p>
           </div>
-          <hr class="card-divider">
-
-          <a class="card-sub card-dossier-link"
-             href="https://demarche.numerique.gouv.fr/procedures/${dossier.demarche || 128447}/a-suivre/dossiers/${dossier.dossier_number}"
-             target="_blank" rel="noopener noreferrer">Dossier ${dossier.dossier_number}</a>
-          ${dossier.type_mobilite ? `<p class="card-type">${dossier.type_mobilite}</p>` : ""}
-
-          ${activite ? `<p class="card-dates">${calendarIcon}${activite}</p>` : ""}
-          ${trajet ? `<p class="card-dates card-dates--soft">${calendarIcon}${trajet}</p>` : ""}
-
-          <div class="card-checks">
-            <span class="check-item">${dossier.envoye_pedagogique ? iconSent : iconNotSent} Kit pédagogique et attestation</span>
-            <span class="check-item">${dossier.envoye_financier ? iconSent : iconNotSent} Contrat financier</span>
-          </div>
+          <span class="carte-pays" title="${d.pays_accueil || ""}">${d.pays_accueil || "Pays ?"}</span>
         </div>
-        ${downloadLink}
-        <div class="card-status-bar ${statusClass}"></div>
-        <p class="card-etablissement">${etabIcon}${dossier.etablissement}</p>
-        <label class="card-select">
-          <input type="checkbox" data-dossier="${dossier.dossier_number}" ${checked}
-                 aria-label="Sélectionner le dossier ${dossier.dossier_number}">
-        </label>
-      </article>
-    `;
+        <div class="carte-infos">${infos}</div>
+        <div class="carte-docs">${documentsHtml(d)}</div>
+        <div class="carte-pied">
+          <p class="carte-etab">${svg(ICO.maison, 14)}${d.etablissement}</p>
+          ${etatGlobal(d)}
+        </div>
+      </article>`;
+  }
+
+  function ligneHtml(d) {
+    const c = contenu(d);
+    const sel = selected.has(String(d.dossier_number));
+    return `
+      <article class="ligne${sel ? " is-selected" : ""}" data-dossier="${d.dossier_number}">
+        <input class="carte-coche" type="checkbox" data-dossier="${d.dossier_number}" ${sel ? "checked" : ""}
+               aria-label="Sélectionner le dossier ${d.dossier_number}">
+        <span class="carte-avatar carte-avatar--petit${estComplet(d) ? " is-complet" : ""}" aria-hidden="true">${c.avatar}</span>
+        <div class="ligne-nom"><h3>${c.titre}</h3><small>${lienDossier(d)} · ${d.etablissement}</small></div>
+        <span class="carte-pays" title="${d.pays_accueil || ""}">${d.pays_accueil || "Pays ?"}</span>
+        <div class="ligne-col"><b>${c.infos[0].haut}</b><small>${c.infos[0].bas || ""}</small></div>
+        <div class="ligne-col"><b>${c.resume || "—"}</b><small>${c.resumeBas || ""}</small></div>
+        <div class="ligne-docs">${documentsHtml(d)}</div>
+        ${etatGlobal(d)}
+      </article>`;
   }
 
   function render() {
     const visible = allDossiers.filter(matches);
     el.countVisible.textContent = visible.length;
     el.countTotal.textContent = allDossiers.length;
+    const champ = DOCUMENTS[documentActif].champ;
+    el.countATraiter.textContent = allDossiers.filter((d) => !d[champ]).length;
+    renderSynthese();
 
     el.cards.innerHTML = visible.length
-      ? visible.map(cardTemplate).join("")
+      ? visible.map(modeAffichage === "liste" ? ligneHtml : carteHtml).join("")
       : '<p class="empty-state">Aucun dossier ne correspond à ces filtres.</p>';
 
     el.cards.querySelectorAll('input[type="checkbox"]').forEach((box) => {
@@ -466,6 +512,7 @@
         const id = box.dataset.dossier;
         if (box.checked) selected.add(id);
         else selected.delete(id);
+        box.closest("[data-dossier].carte, [data-dossier].ligne")?.classList.toggle("is-selected", box.checked);
         updateSelectionUI();
       });
     });
@@ -474,11 +521,16 @@
   }
 
   function updateSelectionUI() {
-    el.selCount.textContent = `(${selected.size})`;
+    const n = selected.size;
+    el.selCount.textContent = `(${n})`;
+    el.selCountBis.textContent = `(${n})`;
+    el.selNombre.textContent = n;
+    // Barre d'actions : visible dès qu'un dossier est sélectionné
+    el.barreActions.hidden = n === 0 || vue === "dashboard" || Boolean(VUES[vue].bientot);
     // Boutons grisés si le service nécessaire est en échec
-    el.btnGenerate.disabled = selected.size === 0 || !sante.grist;
+    el.btnGenerate.disabled = n === 0 || !sante.grist;
     const envoiOk = envoiConfigure[documentActif] !== false;
-    el.btnSend.disabled = selected.size === 0 || !sante.grist || !sante.dn || !envoiOk;
+    el.btnSend.disabled = n === 0 || !sante.grist || !sante.dn || !envoiOk;
     el.btnSend.title = envoiOk ? "" : MESSAGE_NON_CONFIGURE;
     el.btnSyncDn.disabled = !sante.dn || !sante.grist || !synchroConfiguree;
     el.btnSyncDn.title = synchroConfiguree ? "" : MESSAGE_NON_CONFIGURE;
@@ -491,6 +543,40 @@
       visibleIds.length > 0 && selectedVisible.length === visibleIds.length;
     el.toggleSelectAll.indeterminate =
       selectedVisible.length > 0 && selectedVisible.length < visibleIds.length;
+  }
+
+  // Libellé du filtre d'envoi = document de l'onglet actif
+  function majLibelleStatut() {
+    const actif = document.querySelector('[data-filter="document"].is-active');
+    const financier = actif && actif.dataset.value === "financier";
+    el.statutLibelle.textContent = financier ? "Contrat financier" : VUES[vue].libellePedagogique;
+  }
+
+  // Affichage cartes / liste, mémorisé par page (localStorage, facultatif)
+  function lireAffichage() {
+    try {
+      return localStorage.getItem(`pony-affichage-${vue}`) === "liste" ? "liste" : "cartes";
+    } catch {
+      return "cartes";
+    }
+  }
+  function appliquerAffichage() {
+    el.cards.classList.toggle("card-grid", modeAffichage === "cartes");
+    el.cards.classList.toggle("liste-dossiers", modeAffichage === "liste");
+    el.vueCartes.classList.toggle("is-active", modeAffichage === "cartes");
+    el.vueListe.classList.toggle("is-active", modeAffichage === "liste");
+    el.vueCartes.setAttribute("aria-pressed", modeAffichage === "cartes");
+    el.vueListe.setAttribute("aria-pressed", modeAffichage === "liste");
+  }
+  function choisirAffichage(mode) {
+    modeAffichage = mode;
+    try {
+      localStorage.setItem(`pony-affichage-${vue}`, mode);
+    } catch {
+      /* stockage indisponible : le choix vaut pour la session */
+    }
+    appliquerAffichage();
+    render();
   }
 
   function populateEtablissements(etablissements) {
@@ -509,15 +595,14 @@
     const api = VUES[vue].api;
     const url = refresh ? `${api}?refresh=1` : api;
     el.btnRefresh.disabled = true;
-    const previousLabel = el.btnRefresh.textContent;
-    if (refresh) el.btnRefresh.textContent = "Rafraîchissement…";
+    if (refresh) el.btnRefresh.classList.add("is-loading");
 
     const res = await fetch(url);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       el.cards.innerHTML = `<p class="empty-state">Erreur de chargement des dossiers.${err.error ? `<br>${err.error}` : ""}</p>`;
       el.btnRefresh.disabled = false;
-      el.btnRefresh.textContent = previousLabel;
+      el.btnRefresh.classList.remove("is-loading");
       return;
     }
     const data = await res.json();
@@ -536,7 +621,7 @@
     populateEtablissements(data.etablissements);
     render();
     el.btnRefresh.disabled = false;
-    el.btnRefresh.textContent = previousLabel;
+    el.btnRefresh.classList.remove("is-loading");
   }
 
   async function generateSelection() {
@@ -737,19 +822,56 @@
     if (el.toggleSelectAll.checked) selectAllVisible();
     else selectNone();
   });
-  wireSegmented('[data-filter="kit"]', (value) => (filterKit = value));
-  wireSegmented('[data-filter="document"]', (value) =>
-    setDocument(VUES[vue].documents[value]),
-  );
-  wireSegmented(
-    '[data-filter="financier"]',
-    (value) => (filterFinancier = value),
-  );
+  wireSegmented('[data-filter="statut"]', (value) => (filterStatut = value));
+  // Onglets : le document traité change, le filtre d'envoi repart sur « Tous »
+  wireSegmented('[data-filter="document"]', (value) => {
+    setDocument(VUES[vue].documents[value]);
+    majLibelleStatut();
+    filterStatut = "tous";
+    document.querySelectorAll('[data-filter="statut"]').forEach((b) =>
+      b.classList.toggle("is-active", b.dataset.value === "tous"));
+  });
+  // Badges cliquables : « complets » et « à traiter » filtrent la liste (second clic = tout)
+  document.getElementById("badge-complets").addEventListener("click", () => {
+    filterComplet = filterComplet === "complets" ? "" : "complets";
+    render();
+  });
+  document.getElementById("badge-a-traiter").addEventListener("click", () => {
+    filterStatut = filterStatut === "a_envoyer" ? "tous" : "a_envoyer";
+    document.querySelectorAll('[data-filter="statut"]').forEach((b) =>
+      b.classList.toggle("is-active", b.dataset.value === filterStatut));
+    render();
+  });
+  // Ctrl+K (ou Cmd+K) : recherche
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k" && !document.body.classList.contains("vue-dashboard")) {
+      e.preventDefault();
+      el.search.focus();
+      el.search.select();
+    }
+  });
+  el.btnTout.addEventListener("click", selectAllVisible);
+  el.btnAucun.addEventListener("click", selectNone);
+  el.vueCartes.addEventListener("click", () => choisirAffichage("cartes"));
+  el.vueListe.addEventListener("click", () => choisirAffichage("liste"));
+  // Clic sur une carte / ligne : (dé)sélection, sauf sur un lien (document, dossier DN)
+  el.cards.addEventListener("click", (e) => {
+    if (e.target.closest("a, input, button")) return;
+    const carte = e.target.closest("[data-dossier]");
+    if (!carte) return;
+    const id = String(carte.dataset.dossier);
+    if (selected.has(id)) selected.delete(id);
+    else selected.add(id);
+    const coche = carte.querySelector('input[type="checkbox"]');
+    if (coche) coche.checked = selected.has(id);
+    carte.classList.toggle("is-selected", selected.has(id));
+    updateSelectionUI();
+  });
 
   // Navigation entre les pages par le rail (#apprenants, #groupes)
   // --- Tableau de bord du consortium ---
 
-  const COULEURS_TYPES = { apprenants: "#6C38F5", groupes: "#D9772F", personnel: "#1E4FD8" };
+  const COULEURS_TYPES = { apprenants: "#1E1CC8", groupes: "#D1215D", personnel: "#4DC2EF" };
   const nf = (n) => Number(n || 0).toLocaleString("fr-FR");
   const euros = (n) => `${nf(Math.round(n || 0))} €`;
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
@@ -758,6 +880,9 @@
     annee: document.getElementById("filter-annee-dash"),
     type: document.getElementById("filter-type-dash"),
   };
+  // Filtre de type multichoix (menu à cases + tuiles cliquables) ; vide = tous les types
+  const typesChoisis = new Set();
+  let typesDisponibles = [];
   const TYPES_DASH = [
     ["apprenants", "Apprenants"],
     ["groupes", "Groupes"],
@@ -779,13 +904,42 @@
     experts: '<circle cx="15" cy="7" r="4"/><path d="M13 15h5a4 4 0 0 1 4 4v2"/><path d="M2 14h7"/><path d="m6 11 3 3-3 3"/>',
   };
 
+  // Tuile chiffrée. Cliquable (filtre de type) sauf « Experts invités » tant qu'il n'y a pas de données :
+  // un type ajouté ou retiré de la sélection ; « Mobilités » remet tous les types.
   function kpi(cle, libelle, valeur, detail, teinte) {
-    return `<div class="dash-card dash-kpi">
+    const filtrable = cle === "mobilites" || TYPES_DASH.some(([t]) => t === cle);
+    const actif = cle === "mobilites" ? typesChoisis.size === 0 : typesChoisis.has(cle);
+    const attenue = filtrable && cle !== "mobilites" && typesChoisis.size > 0 && !actif;
+    const balise = filtrable ? "button" : "div";
+    const attrs = filtrable
+      ? ` type="button" data-kpi-type="${cle}" aria-pressed="${actif}" title="${cle === "mobilites" ? "Tous les types" : `Filtrer : ${libelle.toLowerCase()} (ajouter / retirer)`}"`
+      : "";
+    return `<${balise} class="dash-card dash-kpi${filtrable ? " dash-kpi--filtre" : ""}${actif && typesChoisis.size ? " is-actif" : ""}${attenue ? " is-attenue" : ""}"${attrs}>
         <div class="dash-kpi-icone dash-kpi-icone--${teinte}">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES_KPI[cle]}</svg>
         </div>
         <div><div class="dash-kpi-libelle">${libelle}</div><div class="dash-kpi-valeur">${valeur == null ? "—" : nf(valeur)}</div><div class="dash-kpi-detail">${detail}</div></div>
-      </div>`;
+      </${balise}>`;
+  }
+
+  function libelleTypes() {
+    if (!typesChoisis.size) return "Tous les types";
+    return typesDisponibles.filter((t) => typesChoisis.has(t.valeur)).map((t) => t.libelle).join(", ");
+  }
+
+  function majMenuTypes() {
+    document.getElementById("type-dash-libelle").textContent = libelleTypes();
+    document.getElementById("type-dash-options").innerHTML = typesDisponibles.map((t) =>
+      `<label><input type="checkbox" value="${t.valeur}" ${typesChoisis.has(t.valeur) ? "checked" : ""}> ${t.libelle}</label>`).join("") +
+      `<button type="button" class="multi-choix-tous" ${typesChoisis.size ? "" : "disabled"}>Tous les types</button>`;
+  }
+
+  function changerTypes(maj) {
+    maj();
+    // Tous cochés = aucun filtre
+    if (typesDisponibles.length && typesChoisis.size === typesDisponibles.length) typesChoisis.clear();
+    majMenuTypes();
+    loadDashboard();
   }
 
   // Infobulles façon Metabase : fond foncé, pastille, valeur, %, total
@@ -845,12 +999,11 @@
     const t = d.totaux;
     infobulles = [];
     document.getElementById("dash-exemple").hidden = !d.exemple;
-    const typeChoisi = dash.type.options[dash.type.selectedIndex];
     const filtres = [
       el.filterEtab.value || "tous établissements",
       dash.projet.value || "tous projets",
       dash.annee.value || "toutes années",
-      dash.type.value ? typeChoisi.textContent.toLowerCase() : "tous types",
+      typesChoisis.size ? libelleTypes().toLowerCase() : "tous types",
     ];
     document.getElementById("dash-sous-titre").textContent = `Mobilités Erasmus+ : ${filtres.join(", ")}`;
     // Temps de lecture Grist (test de performance)
@@ -866,15 +1019,16 @@
 
     document.getElementById("dash-kpis").innerHTML =
       kpi("mobilites", "Mobilités", t.mobilites, "tous types confondus", "violet") +
-      kpi("apprenants", "Apprenants", t.apprenants, "mobilités individuelles", "violet") +
-      kpi("personnel", "Personnel", t.personnel, "mobilités du personnel", "bleu") +
-      kpi("groupes", "Groupes", t.groupes, `${nf(t.participants_groupes)} participants`, "violet") +
+      // Tuiles par type : comptées hors filtre de type, pour voir ce qu'on peut ajouter à la sélection
+      kpi("apprenants", "Apprenants", d.par_type?.apprenants ?? t.apprenants, "mobilités individuelles", "violet") +
+      kpi("personnel", "Personnel", d.par_type?.personnel ?? t.personnel, "mobilités du personnel", "bleu") +
+      kpi("groupes", "Groupes", d.par_type?.groupes ?? t.groupes, `${nf(d.participants_groupes_tous ?? t.participants_groupes)} participants`, "violet") +
       // Experts invités : démarche DN pas encore créée
       kpi("experts", "Experts invités", t.experts ?? null, t.experts == null ? "démarche à venir" : "mobilités entrantes", "bleu");
 
     // Barres empilées par type (violet / orange / bleu), info-bulle par segment
     const max = Math.max(1, ...d.par_etablissement.map((e) => e.mobilites));
-    const typesVisibles = TYPES_DASH.filter(([cle]) => !dash.type.value || dash.type.value === cle);
+    const typesVisibles = TYPES_DASH.filter(([cle]) => !typesChoisis.size || typesChoisis.has(cle));
     document.getElementById("dash-etabs-legende").innerHTML = typesVisibles
       .map(([cle, lib]) => `<li><span class="dash-puce" style="background:${COULEURS_TYPES[cle]}"></span>${lib}</li>`)
       .join("");
@@ -898,10 +1052,10 @@
 
     document.getElementById("dash-donut-type").innerHTML = donut(
       [
-        { libelle: "Apprenants", valeur: t.apprenants, couleur: COULEURS_TYPES.apprenants },
-        { libelle: "Groupes", valeur: t.groupes, couleur: COULEURS_TYPES.groupes },
-        { libelle: "Personnel", valeur: t.personnel, couleur: COULEURS_TYPES.personnel },
-      ],
+        { cle: "apprenants", libelle: "Apprenants", valeur: t.apprenants, couleur: COULEURS_TYPES.apprenants },
+        { cle: "groupes", libelle: "Groupes", valeur: t.groupes, couleur: COULEURS_TYPES.groupes },
+        { cle: "personnel", libelle: "Personnel", valeur: t.personnel, couleur: COULEURS_TYPES.personnel },
+      ].filter((seg) => !typesChoisis.size || typesChoisis.has(seg.cle)), // types filtrés : pas de ligne à 0 %
       nf(t.mobilites), "mobilités", "Mobilités par type");
     const st = d.statut;
     const blocStatut = document.getElementById("dash-donut-statut");
@@ -919,8 +1073,8 @@
     const c = 2 * Math.PI * r;
     document.getElementById("dash-anneau").innerHTML = `
       <svg width="190" height="190" viewBox="0 0 190 190" role="img" aria-label="Subvention consommée : ${taux} %">
-        <circle cx="95" cy="95" r="${r}" fill="none" stroke="#f1eeff" stroke-width="18"></circle>
-        <circle cx="95" cy="95" r="${r}" fill="none" stroke="#6c38f5" stroke-width="18" stroke-linecap="round"
+        <circle cx="95" cy="95" r="${r}" fill="none" stroke="#eeeefc" stroke-width="18"></circle>
+        <circle cx="95" cy="95" r="${r}" fill="none" stroke="#1e1cc8" stroke-width="18" stroke-linecap="round"
           stroke-dasharray="${((Math.min(taux, 100) / 100) * c).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 95 95)"></circle>
         <text x="95" y="96" text-anchor="middle" class="dash-anneau-val">${taux} %</text>
         <text x="95" y="118" text-anchor="middle" class="dash-donut-sous">de la subvention</text>
@@ -939,8 +1093,8 @@
       </div>`;
     document.getElementById("dash-montants").innerHTML =
       ligne("Subvention accordée", sub.accordee) +
-      ligne("Montant engagé", sub.engagee, taux, "#6c38f5") +
-      (sub.versee != null ? ligne("Montant versé", sub.versee, pct(sub.versee, sub.accordee), "#1e4fd8") : "") +
+      ligne("Montant engagé", sub.engagee, taux, "#1e1cc8") +
+      (sub.versee != null ? ligne("Montant versé", sub.versee, pct(sub.versee, sub.accordee), "#d1215d") : "") +
       ligne("Reste à engager", Math.max(0, sub.accordee - sub.engagee)) +
       `<h3 class="dash-sous-titre">Autres montants</h3>` +
       ligneDetail("Montant PAMO", sub.pamo, sub.pamo_participants == null
@@ -956,7 +1110,7 @@
   // --- Carte des pays d'accueil --------------------------------------------------
   // Fond de carte Europe pré-projeté (scripts/carte/generer.mjs), chargé une seule fois
   let fondCarte = null;
-  const PALETTE_CARTE = ["#ECE8FD", "#C9BCFB", "#A386F8", "#7E54F6", "#5424D6"];
+  const PALETTE_CARTE = ["#E6E6FA", "#BDBCF0", "#8E8CE2", "#5754D6", "#1E1CC8"];
   const GRIS_CARTE = "#E6E4EF";
 
   async function chargerFondCarte() {
@@ -1011,7 +1165,7 @@
       etablissement: el.filterEtab.value,
       code_projet: dash.projet.value,
       annee: dash.annee.value,
-      type: dash.type.value,
+      type: [...typesChoisis].join(","),
     });
     try {
       const res = await fetch(`/api/dashboard?${params}`);
@@ -1029,10 +1183,8 @@
         }
       }
       remplirSelect(dash.annee, "Toutes les années", d.filtres.annees);
-      const typeCourant = dash.type.value;
-      dash.type.innerHTML = '<option value="">Tous les types</option>' +
-        d.filtres.types.map((t) => `<option value="${t.valeur}">${t.libelle}</option>`).join("");
-      dash.type.value = typeCourant;
+      typesDisponibles = d.filtres.types;
+      majMenuTypes();
       renderDashboard(d);
       renderCarte(d.par_pays || []);
     } catch (err) {
@@ -1040,11 +1192,38 @@
     }
   }
 
-  [el.filterEtab, dash.projet, dash.annee, dash.type].forEach((sel) =>
+  [el.filterEtab, dash.projet, dash.annee].forEach((sel) =>
     sel.addEventListener("change", () => {
       if (vue === "dashboard") loadDashboard();
     }),
   );
+
+  // Menu multichoix des types
+  document.getElementById("type-dash-options").addEventListener("change", (e) => {
+    const box = e.target.closest('input[type="checkbox"]');
+    if (box) changerTypes(() => (box.checked ? typesChoisis.add(box.value) : typesChoisis.delete(box.value)));
+  });
+  document.getElementById("type-dash-options").addEventListener("click", (e) => {
+    if (e.target.closest(".multi-choix-tous")) { changerTypes(() => typesChoisis.clear()); dash.type.open = false; }
+  });
+  document.addEventListener("click", (e) => {
+    if (dash.type.open && !dash.type.contains(e.target)) dash.type.open = false;
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && dash.type.open) { dash.type.open = false; dash.type.querySelector("summary").focus(); }
+  });
+
+  // Tuiles cliquables : ajoute / retire un type ; « Mobilités » = tous les types
+  document.getElementById("dash-kpis").addEventListener("click", (e) => {
+    const tuile = e.target.closest("[data-kpi-type]");
+    if (!tuile) return;
+    const cle = tuile.dataset.kpiType;
+    changerTypes(() => {
+      if (cle === "mobilites") typesChoisis.clear();
+      else if (typesChoisis.has(cle)) typesChoisis.delete(cle);
+      else typesChoisis.add(cle);
+    });
+  });
 
   function setVue() {
     const h = location.hash.slice(1);
@@ -1060,8 +1239,14 @@
     // Le sélecteur garde son choix (péda / financier) d'une page à l'autre
     const actif = document.querySelector('[data-filter="document"].is-active');
     setDocument(VUES[vue].documents[(actif && actif.dataset.value) || "pedagogique"]);
-    document.getElementById("doc-option-pedagogique").textContent =
-      VUES[vue].libellePedagogique;
+    document.getElementById("doc-option-pedagogique").innerHTML =
+      `${VUES[vue].libellePedagogique} <small>+ attestation</small>`;
+    majLibelleStatut();
+    filterStatut = "tous";
+    document.querySelectorAll('[data-filter="statut"]').forEach((b) =>
+      b.classList.toggle("is-active", b.dataset.value === "tous"));
+    modeAffichage = lireAffichage();
+    appliquerAffichage();
     document.getElementById("page-title").textContent = VUES[vue].titre;
     el.search.placeholder = VUES[vue].recherche;
     document.querySelectorAll(".rail-icon[data-view]").forEach((a) => {
@@ -1073,6 +1258,8 @@
     selected.clear();
     el.countVisible.textContent = "0";
     el.countTotal.textContent = "0";
+    el.countATraiter.textContent = "0";
+    filterComplet = "";
     el.search.value = "";
     el.filterEtab.value = "";
     allDossiers = [];

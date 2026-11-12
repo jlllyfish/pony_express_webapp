@@ -1,4 +1,6 @@
+import io
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -23,9 +25,14 @@ from service.personnel import list_personnel
 from service.sante import etat_de_sante
 from service.generation import TEMPLATES, generate_document, generate_pieces
 
-from service import auth
+from service import auth, journal, securite
+from service import pdf as pdfs
 
 app = Flask(__name__)
+# Derrière le routeur Scalingo : HTTPS et nom d'hôte réels (liens de réinitialisation en https://)
+from werkzeug.middleware.proxy_fix import ProxyFix  # noqa: E402
+
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 # Clé de signature des sessions et des liens de réinitialisation : à définir en production
 app.secret_key = os.environ.get("SECRET_KEY")
@@ -35,6 +42,7 @@ if not app.secret_key:
         "SECRET_KEY absente : clé temporaire, les sessions seront perdues au redémarrage."
     )
 auth.init_app(app)
+securite.init_app(app)
 
 # Pas de base de données : le doc Grist est la source de vérité.
 # Ce cache mémoire évite de retaper Grist à chaque requête ; un restart le reconstruit.
@@ -53,11 +61,18 @@ def favicon():
     return send_file(os.path.join(app.static_folder, "favicon.ico"), mimetype="image/vnd.microsoft.icon")
 
 
+@app.get("/health")
+def health():
+    """Sonde de disponibilité (publique) : ne touche ni Grist ni DN."""
+    return jsonify({"status": "ok"})
+
+
 @app.get("/")
 def index():
     return render_template(
         "index.html",
         utilisateur=g.utilisateur["email"],
+        admin=bool(g.utilisateur.get("admin")),
         accueil=auth.accueil_a_afficher(),
     )
 
@@ -158,6 +173,8 @@ def api_generate():
         results = generate_pieces(document, dossier_numbers)
     except Exception as exc:  # noqa: BLE001 - on renvoie l'erreur telle quelle pour debug en V1
         return jsonify({"error": str(exc)}), 500
+    # Vérification seulement : les PDF sont regénérés (données fraîches) au téléchargement et à l'envoi
+    pdfs.supprimer(*(c for chemins in results.values() for c in chemins.values()))
     return jsonify({"generated": list(results.keys())})
 
 
@@ -170,13 +187,21 @@ def api_download(dossier_number):
             raise ValueError(f"PDF inconnu : {pdf}")
         results = generate_document(pdf, [dossier_number])
     except Exception as exc:  # noqa: BLE001
+        journal.ecrire(g.utilisateur["email"], "telechargement", request.args.get("document"), dossier_number,
+                       "erreur", str(exc))
         return jsonify({"error": str(exc)}), 500
     path = results.get(dossier_number) or results.get(int(dossier_number))
     if not path:
+        journal.ecrire(g.utilisateur["email"], "telechargement", pdf, dossier_number, "erreur", "dossier introuvable")
         return jsonify(
             {"error": "dossier introuvable ou filtré par should_be_exported"}
         ), 404
-    return send_file(path, as_attachment=True)
+    journal.ecrire(g.utilisateur["email"], "telechargement", pdf, dossier_number, "ok")
+    # lu en mémoire puis supprimé du disque avant l'envoi au navigateur
+    contenu = io.BytesIO(Path(path).read_bytes())
+    nom = Path(path).name
+    pdfs.supprimer(path)
+    return send_file(contenu, as_attachment=True, download_name=nom, mimetype="application/pdf")
 
 
 @app.post("/api/kits/send")
@@ -191,22 +216,35 @@ def api_send():
         document = _document(payload.get("document"))
         pdf_paths = generate_pieces(document, dossier_numbers)
     except Exception as exc:  # noqa: BLE001
+        for dossier_number in dossier_numbers:
+            journal.ecrire(g.utilisateur["email"], "envoi", payload.get("document"), dossier_number,
+                           "erreur", f"génération échouée : {exc}")
         return jsonify({"error": f"génération échouée : {exc}"}), 500
 
+    try:
+        sent, failed = _envoyer(document, dossier_numbers, pdf_paths)
+    finally:
+        pdfs.supprimer(*(c for chemins in pdf_paths.values() for c in chemins.values()))
+    status_code = 200 if not failed else 207  # 207 Multi-Status : succès partiel
+    return jsonify({"sent": sent, "failed": failed}), status_code
+
+
+def _envoyer(document: str, dossier_numbers: list, pdf_paths: dict) -> tuple[list, dict]:
     sent, failed = [], {}
     for dossier_number in dossier_numbers:
         chemins = pdf_paths.get(str(dossier_number))
         if not chemins:
             failed[dossier_number] = "PDF non généré (filtré par should_be_exported ?)"
+            journal.ecrire(g.utilisateur["email"], "envoi", document, dossier_number, "erreur", failed[dossier_number])
             continue
         try:
             envoyer_document(document, dossier_number, chemins)
             sent.append(dossier_number)
+            journal.ecrire(g.utilisateur["email"], "envoi", document, dossier_number, "ok")
         except Exception as exc:  # noqa: BLE001
             failed[dossier_number] = str(exc)
-
-    status_code = 200 if not failed else 207  # 207 Multi-Status : succès partiel
-    return jsonify({"sent": sent, "failed": failed}), status_code
+            journal.ecrire(g.utilisateur["email"], "envoi", document, dossier_number, "erreur", str(exc))
+    return sent, failed
 
 
 if __name__ == "__main__":

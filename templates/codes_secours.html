@@ -1,0 +1,19 @@
+{% extends "auth_base.html" %}
+{% block titre %}Codes de secours{% endblock %}
+{% block formulaire %}
+  <p class="consigne">
+    <b>Double authentification activée.</b> Notez ces codes de secours et rangez-les en lieu sûr :
+    chacun permet <b>une</b> connexion si vous perdez votre téléphone. Ils ne seront plus affichés.
+  </p>
+  <ol class="codes">
+    {% for c in codes %}<li><code>{{ c }}</code></li>{% endfor %}
+  </ol>
+  <button type="button" class="secondaire" id="copier-codes">Copier les codes</button>
+  <button type="submit">J'ai noté mes codes, continuer</button>
+  <script>
+    document.getElementById("copier-codes").addEventListener("click", async (e) => {
+      const texte = [...document.querySelectorAll(".codes code")].map((c) => c.textContent).join("\n");
+      try { await navigator.clipboard.writeText("Pony Express — codes de secours\n" + texte); e.target.textContent = "Copiés ✓"; } catch {}
+    });
+  </script>
+{% endblock %}
