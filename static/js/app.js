@@ -880,9 +880,47 @@
     annee: document.getElementById("filter-annee-dash"),
     type: document.getElementById("filter-type-dash"),
   };
-  // Filtre de type multichoix (menu à cases + tuiles cliquables) ; vide = tous les types
-  const typesChoisis = new Set();
-  let typesDisponibles = [];
+  // Menu déroulant multichoix (<details> + cases à cocher). Ensemble vide = pas de filtre.
+  function multiChoix(details, libelleTous) {
+    const mc = { choisis: new Set(), options: [] };
+    const libelle = details.querySelector("summary span");
+    const menu = details.querySelector(".multi-choix-menu");
+    mc.libelle = () => (mc.choisis.size
+      ? mc.options.filter((o) => mc.choisis.has(o.valeur)).map((o) => o.libelle).join(", ")
+      : libelleTous);
+    mc.rendre = () => {
+      libelle.textContent = mc.libelle();
+      menu.innerHTML = mc.options.map((o) =>
+        `<label><input type="checkbox" value="${o.valeur}" ${mc.choisis.has(o.valeur) ? "checked" : ""}> ${o.libelle}</label>`).join("") +
+        `<button type="button" class="multi-choix-tous" ${mc.choisis.size ? "" : "disabled"}>${libelleTous}</button>`;
+    };
+    mc.changer = (maj) => {
+      maj(mc.choisis);
+      // Tout cocher = aucun filtre
+      if (mc.options.length > 1 && mc.choisis.size === mc.options.length) mc.choisis.clear();
+      mc.rendre();
+      loadDashboard();
+    };
+    mc.basculer = (v) => mc.changer((s) => (s.has(v) ? s.delete(v) : s.add(v)));
+    menu.addEventListener("change", (e) => {
+      const box = e.target.closest('input[type="checkbox"]');
+      if (box) mc.changer((s) => (box.checked ? s.add(box.value) : s.delete(box.value)));
+    });
+    menu.addEventListener("click", (e) => {
+      if (e.target.closest(".multi-choix-tous")) { details.open = false; mc.changer((s) => s.clear()); }
+    });
+    document.addEventListener("click", (e) => {
+      if (details.open && !details.contains(e.target)) details.open = false;
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && details.open) { details.open = false; details.querySelector("summary").focus(); }
+    });
+    return mc;
+  }
+  // Types (aussi pilotés par les tuiles) et pays d'accueil (aussi pilotés par la carte)
+  const typesMC = multiChoix(dash.type, "Tous les types");
+  const typesChoisis = typesMC.choisis;
+  const paysMC = multiChoix(document.getElementById("filter-pays-dash"), "Tous les pays");
   const TYPES_DASH = [
     ["apprenants", "Apprenants"],
     ["groupes", "Groupes"],
@@ -922,25 +960,7 @@
       </${balise}>`;
   }
 
-  function libelleTypes() {
-    if (!typesChoisis.size) return "Tous les types";
-    return typesDisponibles.filter((t) => typesChoisis.has(t.valeur)).map((t) => t.libelle).join(", ");
-  }
 
-  function majMenuTypes() {
-    document.getElementById("type-dash-libelle").textContent = libelleTypes();
-    document.getElementById("type-dash-options").innerHTML = typesDisponibles.map((t) =>
-      `<label><input type="checkbox" value="${t.valeur}" ${typesChoisis.has(t.valeur) ? "checked" : ""}> ${t.libelle}</label>`).join("") +
-      `<button type="button" class="multi-choix-tous" ${typesChoisis.size ? "" : "disabled"}>Tous les types</button>`;
-  }
-
-  function changerTypes(maj) {
-    maj();
-    // Tous cochés = aucun filtre
-    if (typesDisponibles.length && typesChoisis.size === typesDisponibles.length) typesChoisis.clear();
-    majMenuTypes();
-    loadDashboard();
-  }
 
   // Infobulles façon Metabase : fond foncé, pastille, valeur, %, total
   let infobulles = [];
@@ -1003,7 +1023,8 @@
       el.filterEtab.value || "tous établissements",
       dash.projet.value || "tous projets",
       dash.annee.value || "toutes années",
-      typesChoisis.size ? libelleTypes().toLowerCase() : "tous types",
+      typesChoisis.size ? typesMC.libelle().toLowerCase() : "tous types",
+      paysMC.choisis.size ? paysMC.libelle() : "tous pays",
     ];
     document.getElementById("dash-sous-titre").textContent = `Mobilités Erasmus+ : ${filtres.join(", ")}`;
     // Temps de lecture Grist (test de performance)
@@ -1132,22 +1153,24 @@
     const lignesPays = (p) => TYPES_DASH.map(([cle, lib]) => ({ libelle: lib, valeur: p[cle], couleur: COULEURS_TYPES[cle] }));
 
     const surCarte = new Set();
+    // Pays sélectionnés : contour violet ; les autres pays à mobilités restent cliquables mais atténués
+    const etatPays = (code) => (!paysMC.choisis.size ? "" : paysMC.choisis.has(code || "-") ? " is-choisi" : " is-attenue");
     const paths = fond.pays.map((f) => {
       const p = index[f.iso2];
       if (p) surCarte.add(f.iso2);
       const tip = p ? infobulle(f.nom, lignesPays(p), -1) : "";
-      return `<path class="carte-pays${p ? " carte-pays--actif" : ""}" d="${f.d}" fill="${couleur(p ? p.total : 0)}" ${tip}></path>`;
+      return `<path class="carte-pays${p ? ` carte-pays--actif${etatPays(f.iso2)}` : ""}" d="${f.d}" fill="${couleur(p ? p.total : 0)}" ${p ? `data-pays="${f.iso2}"` : ""} ${tip}></path>`;
     }).join("");
     // Petits pays avec des mobilités (Malte, Luxembourg…) : pastille au centre, au-dessus des autres
     const reperes = fond.pays.filter((f) => f.c && index[f.iso2]).map((f) =>
-      `<circle class="carte-pays carte-pays--actif carte-repere" cx="${f.c[0]}" cy="${f.c[1]}" r="6" fill="${couleur(index[f.iso2].total)}" ${infobulle(f.nom, lignesPays(index[f.iso2]), -1)}></circle>`).join("");
+      `<circle class="carte-pays carte-pays--actif carte-repere${etatPays(f.iso2)}" cx="${f.c[0]}" cy="${f.c[1]}" r="6" fill="${couleur(index[f.iso2].total)}" data-pays="${f.iso2}" ${infobulle(f.nom, lignesPays(index[f.iso2]), -1)}></circle>`).join("");
     document.getElementById("dash-carte").innerHTML =
       `<svg viewBox="0 0 ${fond.largeur} ${fond.hauteur}" role="img" aria-label="Carte des mobilités par pays d'accueil">${paths}${reperes}</svg>`;
     document.getElementById("dash-carte-legende").innerHTML =
       `<span>1</span>${PALETTE_CARTE.map((c) => `<i style="background:${c}"></i>`).join("")}<span>${nf(max)} mobilités</span>` +
       `<i class="carte-legende-aucune" style="background:${GRIS_CARTE}"></i><span>aucune</span>`;
 
-    const ligneListe = (p, barre) => `<li ${infobulle(nomPays(p.code), lignesPays(p), -1)}><span>${nomPays(p.code)}</span><strong>${nf(p.total)}</strong>` +
+    const ligneListe = (p, barre) => `<li class="carte-ligne${etatPays(p.code)}" data-pays="${p.code || "-"}" role="button" tabindex="0" ${infobulle(nomPays(p.code), lignesPays(p), -1)}><span>${nomPays(p.code)}</span><strong>${nf(p.total)}</strong>` +
       (barre ? `<div class="carte-barre"><span style="width:${(p.total / max) * 100}%"></span></div>` : "") + "</li>";
     // le classement ignore les pays non renseignés (listés sous « Hors de la carte »)
     const classes = parPays.filter((p) => p.code);
@@ -1166,6 +1189,7 @@
       code_projet: dash.projet.value,
       annee: dash.annee.value,
       type: [...typesChoisis].join(","),
+      pays: [...paysMC.choisis].join(","),
     });
     try {
       const res = await fetch(`/api/dashboard?${params}`);
@@ -1183,8 +1207,13 @@
         }
       }
       remplirSelect(dash.annee, "Toutes les années", d.filtres.annees);
-      typesDisponibles = d.filtres.types;
-      majMenuTypes();
+      typesMC.options = d.filtres.types;
+      typesMC.rendre();
+      await chargerFondCarte(); // noms des pays
+      paysMC.options = (d.filtres.pays || [])
+        .map((c) => ({ valeur: c, libelle: c === "-" ? "Non renseigné" : nomPays(c) }))
+        .sort((a, b) => (a.valeur === "-") - (b.valeur === "-") || a.libelle.localeCompare(b.libelle, "fr"));
+      paysMC.rendre();
       renderDashboard(d);
       renderCarte(d.par_pays || []);
     } catch (err) {
@@ -1198,30 +1227,27 @@
     }),
   );
 
-  // Menu multichoix des types
-  document.getElementById("type-dash-options").addEventListener("change", (e) => {
-    const box = e.target.closest('input[type="checkbox"]');
-    if (box) changerTypes(() => (box.checked ? typesChoisis.add(box.value) : typesChoisis.delete(box.value)));
-  });
-  document.getElementById("type-dash-options").addEventListener("click", (e) => {
-    if (e.target.closest(".multi-choix-tous")) { changerTypes(() => typesChoisis.clear()); dash.type.open = false; }
-  });
-  document.addEventListener("click", (e) => {
-    if (dash.type.open && !dash.type.contains(e.target)) dash.type.open = false;
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && dash.type.open) { dash.type.open = false; dash.type.querySelector("summary").focus(); }
-  });
+  // Carte et listes de pays : un clic ajoute / retire le pays du filtre
+  ["dash-carte", "dash-carte-top", "dash-carte-hors"].forEach((id) =>
+    document.getElementById(id).addEventListener("click", (e) => {
+      const cible = e.target.closest("[data-pays]");
+      if (cible) paysMC.basculer(cible.dataset.pays);
+    }));
+  ["dash-carte-top", "dash-carte-hors"].forEach((id) =>
+    document.getElementById(id).addEventListener("keydown", (e) => {
+      const cible = e.target.closest("[data-pays]");
+      if (cible && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); paysMC.basculer(cible.dataset.pays); }
+    }));
 
   // Tuiles cliquables : ajoute / retire un type ; « Mobilités » = tous les types
   document.getElementById("dash-kpis").addEventListener("click", (e) => {
     const tuile = e.target.closest("[data-kpi-type]");
     if (!tuile) return;
     const cle = tuile.dataset.kpiType;
-    changerTypes(() => {
-      if (cle === "mobilites") typesChoisis.clear();
-      else if (typesChoisis.has(cle)) typesChoisis.delete(cle);
-      else typesChoisis.add(cle);
+    typesMC.changer((s) => {
+      if (cle === "mobilites") s.clear();
+      else if (s.has(cle)) s.delete(cle);
+      else s.add(cle);
     });
   });
 
