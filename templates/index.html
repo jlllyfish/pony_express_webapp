@@ -219,9 +219,10 @@
         <select id="filter-annee-dash" class="champ-select dashboard-only" aria-label="Année">
           <option value="">Toutes les années</option>
         </select>
-        <select id="filter-type-dash" class="champ-select dashboard-only" aria-label="Type de mobilité">
-          <option value="">Tous les types</option>
-        </select>
+        <details id="filter-type-dash" class="multi-choix dashboard-only">
+          <summary class="champ-select" aria-label="Types de mobilité"><span id="type-dash-libelle">Tous les types</span></summary>
+          <div class="multi-choix-menu" id="type-dash-options" role="group" aria-label="Types de mobilité"></div>
+        </details>
         <div class="filtre-statut tuiles-only">
           <span id="filtre-statut-libelle" class="sr-only">Contrat pédagogique</span>
           <div class="segmented" role="radiogroup" aria-labelledby="filtre-statut-libelle">

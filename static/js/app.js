@@ -880,6 +880,9 @@
     annee: document.getElementById("filter-annee-dash"),
     type: document.getElementById("filter-type-dash"),
   };
+  // Filtre de type multichoix (menu à cases + tuiles cliquables) ; vide = tous les types
+  const typesChoisis = new Set();
+  let typesDisponibles = [];
   const TYPES_DASH = [
     ["apprenants", "Apprenants"],
     ["groupes", "Groupes"],
@@ -901,13 +904,42 @@
     experts: '<circle cx="15" cy="7" r="4"/><path d="M13 15h5a4 4 0 0 1 4 4v2"/><path d="M2 14h7"/><path d="m6 11 3 3-3 3"/>',
   };
 
+  // Tuile chiffrée. Cliquable (filtre de type) sauf « Experts invités » tant qu'il n'y a pas de données :
+  // un type ajouté ou retiré de la sélection ; « Mobilités » remet tous les types.
   function kpi(cle, libelle, valeur, detail, teinte) {
-    return `<div class="dash-card dash-kpi">
+    const filtrable = cle === "mobilites" || TYPES_DASH.some(([t]) => t === cle);
+    const actif = cle === "mobilites" ? typesChoisis.size === 0 : typesChoisis.has(cle);
+    const attenue = filtrable && cle !== "mobilites" && typesChoisis.size > 0 && !actif;
+    const balise = filtrable ? "button" : "div";
+    const attrs = filtrable
+      ? ` type="button" data-kpi-type="${cle}" aria-pressed="${actif}" title="${cle === "mobilites" ? "Tous les types" : `Filtrer : ${libelle.toLowerCase()} (ajouter / retirer)`}"`
+      : "";
+    return `<${balise} class="dash-card dash-kpi${filtrable ? " dash-kpi--filtre" : ""}${actif && typesChoisis.size ? " is-actif" : ""}${attenue ? " is-attenue" : ""}"${attrs}>
         <div class="dash-kpi-icone dash-kpi-icone--${teinte}">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES_KPI[cle]}</svg>
         </div>
         <div><div class="dash-kpi-libelle">${libelle}</div><div class="dash-kpi-valeur">${valeur == null ? "—" : nf(valeur)}</div><div class="dash-kpi-detail">${detail}</div></div>
-      </div>`;
+      </${balise}>`;
+  }
+
+  function libelleTypes() {
+    if (!typesChoisis.size) return "Tous les types";
+    return typesDisponibles.filter((t) => typesChoisis.has(t.valeur)).map((t) => t.libelle).join(", ");
+  }
+
+  function majMenuTypes() {
+    document.getElementById("type-dash-libelle").textContent = libelleTypes();
+    document.getElementById("type-dash-options").innerHTML = typesDisponibles.map((t) =>
+      `<label><input type="checkbox" value="${t.valeur}" ${typesChoisis.has(t.valeur) ? "checked" : ""}> ${t.libelle}</label>`).join("") +
+      `<button type="button" class="multi-choix-tous" ${typesChoisis.size ? "" : "disabled"}>Tous les types</button>`;
+  }
+
+  function changerTypes(maj) {
+    maj();
+    // Tous cochés = aucun filtre
+    if (typesDisponibles.length && typesChoisis.size === typesDisponibles.length) typesChoisis.clear();
+    majMenuTypes();
+    loadDashboard();
   }
 
   // Infobulles façon Metabase : fond foncé, pastille, valeur, %, total
@@ -967,12 +999,11 @@
     const t = d.totaux;
     infobulles = [];
     document.getElementById("dash-exemple").hidden = !d.exemple;
-    const typeChoisi = dash.type.options[dash.type.selectedIndex];
     const filtres = [
       el.filterEtab.value || "tous établissements",
       dash.projet.value || "tous projets",
       dash.annee.value || "toutes années",
-      dash.type.value ? typeChoisi.textContent.toLowerCase() : "tous types",
+      typesChoisis.size ? libelleTypes().toLowerCase() : "tous types",
     ];
     document.getElementById("dash-sous-titre").textContent = `Mobilités Erasmus+ : ${filtres.join(", ")}`;
     // Temps de lecture Grist (test de performance)
@@ -988,15 +1019,16 @@
 
     document.getElementById("dash-kpis").innerHTML =
       kpi("mobilites", "Mobilités", t.mobilites, "tous types confondus", "violet") +
-      kpi("apprenants", "Apprenants", t.apprenants, "mobilités individuelles", "violet") +
-      kpi("personnel", "Personnel", t.personnel, "mobilités du personnel", "bleu") +
-      kpi("groupes", "Groupes", t.groupes, `${nf(t.participants_groupes)} participants`, "violet") +
+      // Tuiles par type : comptées hors filtre de type, pour voir ce qu'on peut ajouter à la sélection
+      kpi("apprenants", "Apprenants", d.par_type?.apprenants ?? t.apprenants, "mobilités individuelles", "violet") +
+      kpi("personnel", "Personnel", d.par_type?.personnel ?? t.personnel, "mobilités du personnel", "bleu") +
+      kpi("groupes", "Groupes", d.par_type?.groupes ?? t.groupes, `${nf(d.participants_groupes_tous ?? t.participants_groupes)} participants`, "violet") +
       // Experts invités : démarche DN pas encore créée
       kpi("experts", "Experts invités", t.experts ?? null, t.experts == null ? "démarche à venir" : "mobilités entrantes", "bleu");
 
     // Barres empilées par type (violet / orange / bleu), info-bulle par segment
     const max = Math.max(1, ...d.par_etablissement.map((e) => e.mobilites));
-    const typesVisibles = TYPES_DASH.filter(([cle]) => !dash.type.value || dash.type.value === cle);
+    const typesVisibles = TYPES_DASH.filter(([cle]) => !typesChoisis.size || typesChoisis.has(cle));
     document.getElementById("dash-etabs-legende").innerHTML = typesVisibles
       .map(([cle, lib]) => `<li><span class="dash-puce" style="background:${COULEURS_TYPES[cle]}"></span>${lib}</li>`)
       .join("");
@@ -1020,10 +1052,10 @@
 
     document.getElementById("dash-donut-type").innerHTML = donut(
       [
-        { libelle: "Apprenants", valeur: t.apprenants, couleur: COULEURS_TYPES.apprenants },
-        { libelle: "Groupes", valeur: t.groupes, couleur: COULEURS_TYPES.groupes },
-        { libelle: "Personnel", valeur: t.personnel, couleur: COULEURS_TYPES.personnel },
-      ],
+        { cle: "apprenants", libelle: "Apprenants", valeur: t.apprenants, couleur: COULEURS_TYPES.apprenants },
+        { cle: "groupes", libelle: "Groupes", valeur: t.groupes, couleur: COULEURS_TYPES.groupes },
+        { cle: "personnel", libelle: "Personnel", valeur: t.personnel, couleur: COULEURS_TYPES.personnel },
+      ].filter((seg) => !typesChoisis.size || typesChoisis.has(seg.cle)), // types filtrés : pas de ligne à 0 %
       nf(t.mobilites), "mobilités", "Mobilités par type");
     const st = d.statut;
     const blocStatut = document.getElementById("dash-donut-statut");
@@ -1133,7 +1165,7 @@
       etablissement: el.filterEtab.value,
       code_projet: dash.projet.value,
       annee: dash.annee.value,
-      type: dash.type.value,
+      type: [...typesChoisis].join(","),
     });
     try {
       const res = await fetch(`/api/dashboard?${params}`);
@@ -1151,10 +1183,8 @@
         }
       }
       remplirSelect(dash.annee, "Toutes les années", d.filtres.annees);
-      const typeCourant = dash.type.value;
-      dash.type.innerHTML = '<option value="">Tous les types</option>' +
-        d.filtres.types.map((t) => `<option value="${t.valeur}">${t.libelle}</option>`).join("");
-      dash.type.value = typeCourant;
+      typesDisponibles = d.filtres.types;
+      majMenuTypes();
       renderDashboard(d);
       renderCarte(d.par_pays || []);
     } catch (err) {
@@ -1162,11 +1192,38 @@
     }
   }
 
-  [el.filterEtab, dash.projet, dash.annee, dash.type].forEach((sel) =>
+  [el.filterEtab, dash.projet, dash.annee].forEach((sel) =>
     sel.addEventListener("change", () => {
       if (vue === "dashboard") loadDashboard();
     }),
   );
+
+  // Menu multichoix des types
+  document.getElementById("type-dash-options").addEventListener("change", (e) => {
+    const box = e.target.closest('input[type="checkbox"]');
+    if (box) changerTypes(() => (box.checked ? typesChoisis.add(box.value) : typesChoisis.delete(box.value)));
+  });
+  document.getElementById("type-dash-options").addEventListener("click", (e) => {
+    if (e.target.closest(".multi-choix-tous")) { changerTypes(() => typesChoisis.clear()); dash.type.open = false; }
+  });
+  document.addEventListener("click", (e) => {
+    if (dash.type.open && !dash.type.contains(e.target)) dash.type.open = false;
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && dash.type.open) { dash.type.open = false; dash.type.querySelector("summary").focus(); }
+  });
+
+  // Tuiles cliquables : ajoute / retire un type ; « Mobilités » = tous les types
+  document.getElementById("dash-kpis").addEventListener("click", (e) => {
+    const tuile = e.target.closest("[data-kpi-type]");
+    if (!tuile) return;
+    const cle = tuile.dataset.kpiType;
+    changerTypes(() => {
+      if (cle === "mobilites") typesChoisis.clear();
+      else if (typesChoisis.has(cle)) typesChoisis.delete(cle);
+      else typesChoisis.add(cle);
+    });
+  });
 
   function setVue() {
     const h = location.hash.slice(1);

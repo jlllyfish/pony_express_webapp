@@ -2876,6 +2876,122 @@ body.vue-dashboard .barre-filtres {
   flex-shrink: 0;
 }
 
+/* Filtre multichoix des types (tableau de bord) */
+.multi-choix {
+  position: relative;
+}
+.multi-choix > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 170px;
+  max-width: 260px;
+  user-select: none;
+}
+.multi-choix > summary::-webkit-details-marker {
+  display: none;
+}
+.multi-choix > summary span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.multi-choix > summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  flex-shrink: 0;
+}
+.multi-choix[open] > summary {
+  border-color: var(--violet);
+}
+.multi-choix-menu {
+  position: absolute;
+  z-index: 35;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(25, 23, 71, 0.14);
+}
+.multi-choix-menu label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.multi-choix-menu label:hover {
+  background: var(--fond-onglets);
+}
+.multi-choix-menu input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--violet);
+}
+.multi-choix-tous {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 8px 8px;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--violet);
+  text-align: left;
+  cursor: pointer;
+}
+.multi-choix-tous:disabled {
+  color: var(--ink-soft);
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Tuiles chiffrées cliquables = filtre de type */
+button.dash-kpi {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+button.dash-kpi:hover {
+  border-color: var(--lavande);
+  transform: translateY(-1px);
+}
+button.dash-kpi:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
+}
+.dash-kpi.is-actif {
+  border-color: var(--violet);
+  box-shadow: 0 0 0 3px rgba(30, 28, 200, 0.14);
+}
+.dash-kpi.is-attenue {
+  opacity: 0.5;
+}
+.dash-kpi.is-attenue:hover {
+  opacity: 0.85;
+}
+
 /* =====================================================================
    Téléphone et petite tablette (≤ 820 px) — placé en dernier pour l'emporter
    sur la grille de la refonte : une seule colonne, la page défile, le rail
@@ -2972,6 +3088,11 @@ body.vue-dashboard .barre-filtres {
   /* Filtres empilés */
   .barre-filtres {
     padding: 10px;
+  }
+  .multi-choix,
+  .multi-choix > summary {
+    flex: 1 1 100%;
+    max-width: none;
   }
   .champ-recherche,
   .barre-filtres .champ-select {

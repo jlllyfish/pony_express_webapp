@@ -320,9 +320,12 @@ def par_etablissement(mobilites: list) -> list[dict]:
 
 def indicateurs(tous_projets: list, toutes_mobilites: list,
                 etablissement="", code_projet="", annee_choisie="", type_mobilite="") -> dict:
-    types = (type_mobilite,) if type_mobilite in TYPES else TYPES
+    # Filtre multichoix : « apprenants,groupes » ; vide ou tous cochés = tous les types
+    types = tuple(t for t in TYPES if t in str(type_mobilite or "").split(",")) or TYPES
     retenus = [p for p in tous_projets if not code_projet or p["projet"] == code_projet]
     mob = filtrer(toutes_mobilites, retenus, etablissement, annee_choisie, types)
+    # Compteurs des tuiles par type, hors filtre de type : on voit ce qu'on peut ajouter à la sélection
+    mob_tous_types = mob if types == TYPES else filtrer(toutes_mobilites, retenus, etablissement, annee_choisie, TYPES)
     pamo = montant_pamo(mob, retenus)
     os_ = soutien_organisationnel(mob, retenus)
 
@@ -345,6 +348,9 @@ def indicateurs(tous_projets: list, toutes_mobilites: list,
             "groupes": compte("groupes"),
             "participants_groupes": os_["participants_groupes"],
         },
+        "par_type": {t: sum(1 for m in mob_tous_types if m["type"] == t) for t in TYPES},
+        "participants_groupes_tous": soutien_organisationnel(mob_tous_types, retenus)["participants_groupes"],
+        "types_actifs": [] if types == TYPES else list(types),
         "par_etablissement": par_etablissement(mob),
         "par_pays": par_pays(mob),
         "statut": None,  # public / privé : pas encore de source
