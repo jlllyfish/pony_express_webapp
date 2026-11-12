@@ -135,10 +135,10 @@ def _charger(rafraichir: bool = False) -> dict:
 
 def donnees_dashboard(
     etablissement: str = "", code_projet: str = "", annee: str = "", type_mobilite: str = "",
-    rafraichir: bool = False,
+    rafraichir: bool = False, pays: str = "",
 ) -> dict:
     donnees = _charger(rafraichir)
     reponse = calc.indicateurs(donnees["projets"], donnees["mobilites"],
-                               etablissement, code_projet, annee, type_mobilite)
+                               etablissement, code_projet, annee, type_mobilite, pays)
     reponse["chargement"] = donnees["chargement"]
     return reponse

@@ -2992,6 +2992,41 @@ button.dash-kpi:focus-visible {
   opacity: 0.85;
 }
 
+/* Carte : pays cliquables = filtre pays */
+.carte-pays.is-choisi {
+  stroke: var(--violet-fonce, #16149a);
+  stroke-width: 2.2;
+  paint-order: stroke;
+}
+.carte-pays.is-attenue {
+  opacity: 0.35;
+}
+.carte-pays.is-attenue:hover {
+  opacity: 0.7;
+}
+.carte-top li.carte-ligne {
+  cursor: pointer;
+  margin: -4px -8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+.carte-top li.carte-ligne:hover,
+.carte-top li.carte-ligne:focus-visible {
+  background: var(--fond-onglets);
+  outline: none;
+}
+.carte-top li.is-choisi {
+  background: var(--violet-pale);
+  color: var(--violet-fonce, #16149a);
+}
+.carte-top li.is-attenue {
+  opacity: 0.5;
+}
+.multi-choix-menu--long {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
 /* =====================================================================
    Téléphone et petite tablette (≤ 820 px) — placé en dernier pour l'emporter
    sur la grille de la refonte : une seule colonne, la page défile, le rail

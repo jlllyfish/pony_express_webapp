@@ -227,7 +227,8 @@ def projets(rows: list) -> list[dict]:
 # 4. FILTRES
 # =====================================================================
 
-def filtrer(mobilites: list, projets_retenus: list, etablissement="", annee_choisie="", types=TYPES) -> list:
+def filtrer(mobilites: list, projets_retenus: list, etablissement="", annee_choisie="", types=TYPES,
+            pays: set | None = None) -> list:
     """Mobilités retenues par les filtres.
     Un seul projet aujourd'hui : toutes les mobilités lui sont rattachées. Si le code projet
     choisi n'existe pas dans Financier Erasmus, aucune mobilité n'est retenue."""
@@ -238,6 +239,7 @@ def filtrer(mobilites: list, projets_retenus: list, etablissement="", annee_choi
         if (not etablissement or m["etablissement"] == etablissement)
         and (not annee_choisie or m["annee"] == annee_choisie)
         and m["type"] in types
+        and (not pays or m["pays"] in pays)
     ]
 
 
@@ -318,14 +320,22 @@ def par_etablissement(mobilites: list) -> list[dict]:
 # 6. ASSEMBLAGE : réponse de /api/dashboard
 # =====================================================================
 
+PAYS_NON_RENSEIGNE = "-"  # valeur du filtre pour les mobilités sans pays
+
+
 def indicateurs(tous_projets: list, toutes_mobilites: list,
-                etablissement="", code_projet="", annee_choisie="", type_mobilite="") -> dict:
-    # Filtre multichoix : « apprenants,groupes » ; vide ou tous cochés = tous les types
+                etablissement="", code_projet="", annee_choisie="", type_mobilite="", pays="") -> dict:
+    # Filtres multichoix : « apprenants,groupes », « ES,IE » ; vide (ou tous les types cochés) = pas de filtre
     types = tuple(t for t in TYPES if t in str(type_mobilite or "").split(",")) or TYPES
+    pays_choisis = {"" if c == PAYS_NON_RENSEIGNE else c.strip().upper()
+                    for c in str(pays or "").split(",") if c.strip()}
     retenus = [p for p in tous_projets if not code_projet or p["projet"] == code_projet]
-    mob = filtrer(toutes_mobilites, retenus, etablissement, annee_choisie, types)
-    # Compteurs des tuiles par type, hors filtre de type : on voit ce qu'on peut ajouter à la sélection
-    mob_tous_types = mob if types == TYPES else filtrer(toutes_mobilites, retenus, etablissement, annee_choisie, TYPES)
+    mob = filtrer(toutes_mobilites, retenus, etablissement, annee_choisie, types, pays_choisis)
+    # Tuiles par type et carte : chacune hors de son propre filtre, pour voir ce qu'on peut ajouter
+    mob_tous_types = mob if types == TYPES else filtrer(toutes_mobilites, retenus, etablissement, annee_choisie,
+                                                         TYPES, pays_choisis)
+    mob_tous_pays = mob if not pays_choisis else filtrer(toutes_mobilites, retenus, etablissement, annee_choisie,
+                                                         types)
     pamo = montant_pamo(mob, retenus)
     os_ = soutien_organisationnel(mob, retenus)
 
@@ -340,6 +350,7 @@ def indicateurs(tous_projets: list, toutes_mobilites: list,
             "code_projet_defaut": CODE_PROJET_DEFAUT,
             "annees": sorted({m["annee"] for m in toutes_mobilites if m["annee"]}, reverse=True),
             "types": [{"valeur": t, "libelle": DEMARCHES[t]["libelle"]} for t in ("apprenants", "personnel", "groupes")],
+            "pays": sorted({m["pays"] or PAYS_NON_RENSEIGNE for m in toutes_mobilites}),
         },
         "totaux": {
             "mobilites": len(mob),
@@ -351,8 +362,9 @@ def indicateurs(tous_projets: list, toutes_mobilites: list,
         "par_type": {t: sum(1 for m in mob_tous_types if m["type"] == t) for t in TYPES},
         "participants_groupes_tous": soutien_organisationnel(mob_tous_types, retenus)["participants_groupes"],
         "types_actifs": [] if types == TYPES else list(types),
+        "pays_actifs": sorted(c or PAYS_NON_RENSEIGNE for c in pays_choisis),
         "par_etablissement": par_etablissement(mob),
-        "par_pays": par_pays(mob),
+        "par_pays": par_pays(mob_tous_pays),  # carte : tous les pays, la sélection est mise en évidence
         "statut": None,  # public / privé : pas encore de source
         "subvention": {
             "accordee": round(subvention_accordee(retenus)),

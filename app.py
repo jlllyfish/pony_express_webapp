@@ -105,6 +105,7 @@ def api_dashboard():
                 code_projet=request.args.get("code_projet", ""),
                 annee=request.args.get("annee", ""),
                 type_mobilite=request.args.get("type", ""),
+                pays=request.args.get("pays", ""),
                 rafraichir=request.args.get("refresh") == "1",
             )
         )
