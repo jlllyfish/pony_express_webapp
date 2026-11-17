@@ -185,7 +185,7 @@ def activer_2fa():
         if pas is None:
             _echec(cle)
             flash("Trop d'essais : reconnectez-vous dans 15 minutes." if _bloque(cle)
-                  else "Code incorrect : vérifiez l'heure de votre téléphone et réessayez.", "erreur")
+                  else "Code incorrect : vérifiez que l'appareil qui génère le code est à l'heure, puis réessayez.", "erreur")
             if _bloque(cle):
                 session.pop("2fa", None)
                 return redirect(url_for("auth.connexion"))
@@ -224,7 +224,7 @@ def code_2fa():
                 reponse = _ouvrir_session(u, suivant)
                 n = totp.codes_secours_restants(restants)
                 flash(f"Code de secours utilisé : il vous en reste {n}. Pensez à demander à un administrateur "
-                      "de réinitialiser votre double authentification si vous avez perdu votre téléphone.", "info")
+                      "de réinitialiser votre double authentification si vous avez perdu l'accès à votre application.", "info")
                 return reponse
         else:
             secret = totp.dechiffrer(u["totp_secret"])
@@ -410,7 +410,7 @@ def admin_action(uid, action):
         flash(f"{u['email']} : {'administrateur' if action == 'admin' else 'utilisateur'}", "info")
     elif action == "reinitialiser-2fa":
         comptes.reinitialiser_totp(uid)
-        flash(f"Double authentification réinitialisée : {u['email']} configurera son téléphone "
+        flash(f"Double authentification réinitialisée : {u['email']} reconfigurera son application "
               "à la prochaine connexion.", "info")
     elif action == "supprimer":
         comptes.supprimer(u["email"])
