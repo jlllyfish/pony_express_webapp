@@ -2,18 +2,19 @@
 {% block titre %}Double authentification{% endblock %}
 {% block formulaire %}
   <p class="consigne">
-    <b>Sécurisez votre compte.</b> Ouvrez votre application d'authentification
-    (FreeOTP, Google Authenticator…), touchez <b>+</b> puis <b>Scanner un code QR</b>.
+    <b>Sécurisez votre compte.</b> Ajoutez Pony Express dans une application d'authentification,
+    sur téléphone (FreeOTP, Google Authenticator…) ou sur ordinateur (extension Authenticator, 2FA Guard…) :
+    scannez ce QR code ou utilisez la saisie manuelle.
   </p>
   <div class="qr">{{ qr|safe }}</div>
 
   <a class="bouton-appli" href="{{ lien_appli }}">Vous êtes sur votre téléphone ? Ajouter à l'application</a>
 
   <details class="secret">
-    <summary>Le scan ne fonctionne pas ? Saisie manuelle</summary>
+    <summary>Pas de téléphone ou scan impossible ? Saisie manuelle</summary>
     <ol>
       <li>Dans l'application, touchez <b>+</b> puis <b>Saisir une clé</b>
-        <span class="nuance">Google : « Saisir une clé de configuration » · FreeOTP : icône clé</span></li>
+        <span class="nuance">Google : « Saisir une clé de configuration » · FreeOTP : icône clé · extension Authenticator : crayon, puis +</span></li>
       <li>Nom du compte : <b>Pony Express</b></li>
       <li>Clé :
         <span class="cle"><code id="cle-totp">{{ secret }}</code>
