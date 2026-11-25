@@ -25,6 +25,7 @@ from zoneinfo import ZoneInfo
 import click
 from flask import (Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template,
                    request, session, url_for)
+from flask.sessions import SecureCookieSessionInterface
 
 from service import courriel, journal, totp, utilisateurs as comptes
 
@@ -67,6 +68,18 @@ def _echec(*cles):
 
 # --- Garde globale ------------------------------------------------------------
 
+# Requêtes automatiques (suivi des collègues toutes les 8 s) : elles ne prolongent pas la session,
+# sinon un onglet laissé ouvert resterait connecté indéfiniment au lieu d'expirer après 12 h.
+SONDES = {"/api/evenements"}
+
+
+class _SessionSansSondes(SecureCookieSessionInterface):
+    def should_set_cookie(self, app, session_):
+        if request.path in SONDES:
+            return session_.modified
+        return super().should_set_cookie(app, session_)
+
+
 def init_app(app):
     app.register_blueprint(bp)
     app.config.update(
@@ -77,6 +90,7 @@ def init_app(app):
         PERMANENT_SESSION_LIFETIME=timedelta(hours=12),
     )
     app.jinja_env.globals["csrf"] = jeton_csrf
+    app.session_interface = _SessionSansSondes()
 
     @app.before_request
     def exiger_connexion():
