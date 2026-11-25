@@ -12,6 +12,7 @@ from pony_express.service.grist import GristService
 from pony_express.service.utils import clean_text, get_date_from_timestamp
 from pony_express.templates import contrat_pedagogique as kit
 
+from service import prerequis
 from service.grist_lecture import avec_repli, colonnes_jointes
 
 DEMARCHE_PERSONNEL = 156966
@@ -39,7 +40,7 @@ COLONNES_CHAMPS = [
     "date_debut_activite_hors_jours_de_voyage",
     "date_fin_activite_hors_jours_de_voyage",
 ]
-COLONNES_ANNOTATIONS = [COL_ENVOYE_PEDAGOGIQUE, COL_ENVOYE_FINANCIER]
+COLONNES_ANNOTATIONS = [COL_ENVOYE_PEDAGOGIQUE, COL_ENVOYE_FINANCIER, *prerequis.colonnes("personnel")]
 COLONNES_DOSSIERS = ["state"]
 
 
@@ -102,6 +103,8 @@ def list_personnel() -> list[dict]:
                 "state": clean_text(row.get("state")),
                 "envoye_pedagogique": bool(row.get(COL_ENVOYE_PEDAGOGIQUE)),
                 "envoye_financier": bool(row.get(COL_ENVOYE_FINANCIER)),
+                # éléments à saisir dans les annotations privées avant génération / envoi
+                "manquants": prerequis.manquants("personnel", row),
                 # statut de génération, non persisté (mémoire de la session)
                 "statuts": {"pedagogique_personnel": "non_genere", "financier_personnel": "non_genere"},
             }

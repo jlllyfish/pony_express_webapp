@@ -117,6 +117,30 @@
   let synchroConfiguree = true;
   const MESSAGE_NON_CONFIGURE = "Envoi vers DN pas encore configuré pour cette démarche (identifiants des annotations à renseigner)";
 
+  // Éléments à saisir par les instructeurs dans les annotations privées DN (code projet, montants…)
+  const typeDoc = (doc) => (doc.startsWith("financier") ? "financier" : "pedagogique");
+  const manquantsDe = (d, doc = documentActif) => ((d.manquants || {})[typeDoc(doc)] || []);
+  const nomDossier = (d) => (d && (d.nom_complet || d.titre)) || "";
+
+  function alerteManquants(d) {
+    const liste = manquantsDe(d);
+    if (!liste.length) return "";
+    return `<p class="carte-manquants" title="À saisir dans les annotations privées DN : ${liste.join(", ")}">${svg(ICO.alerte, 14)}<span><b>À compléter dans DN</b> · ${liste.join(", ")}</span></p>`;
+  }
+
+  // Après une vérification côté serveur (données fraîches de Grist)
+  function noterManquants(id, doc, liste) {
+    const d = allDossiers.find((x) => String(x.dossier_number) === String(id));
+    if (d) d.manquants = { ...(d.manquants || {}), [typeDoc(doc)]: liste };
+  }
+
+  function lignesManquants(incomplets) {
+    return Object.entries(incomplets).map(([n, liste]) => {
+      const d = allDossiers.find((x) => String(x.dossier_number) === n);
+      return `<strong>#${n}${d ? ` ${nomDossier(d)}` : ""}</strong> — à compléter dans DN : ${liste.join(", ")}`;
+    });
+  }
+
   function setDocument(value) {
     documentActif = value;
     document
@@ -324,6 +348,7 @@
     train: '<path d="M8 3.1V7a4 4 0 0 0 8 0V3.1"/><path d="m9 15-1-1"/><path d="m15 15 1-1"/><path d="M9 19c-2.8 0-5-2.2-5-5v-4a8 8 0 0 1 16 0v4c0 2.8-2.2 5-5 5Z"/><path d="m8 19-2 3"/><path d="m16 19 2 3"/>',
     voiture: '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>',
     trajet: '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+    alerte: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
   };
   // Type de transport (colonne Grist type_de_transport) -> icône + libellé court
   function transport(type) {
@@ -471,6 +496,7 @@
         </div>
         <div class="carte-infos">${infos}</div>
         <div class="carte-docs">${documentsHtml(d)}</div>
+        ${alerteManquants(d)}
         <div class="carte-pied">
           <p class="carte-etab">${svg(ICO.maison, 14)}${d.etablissement}</p>
           ${etatGlobal(d)}
@@ -490,7 +516,7 @@
         <span class="carte-pays" title="${d.pays_accueil || ""}">${d.pays_accueil || "Pays ?"}</span>
         <div class="ligne-col"><b>${c.infos[0].haut}</b><small>${c.infos[0].bas || ""}</small></div>
         <div class="ligne-col"><b>${c.resume || "—"}</b><small>${c.resumeBas || ""}</small></div>
-        <div class="ligne-docs">${documentsHtml(d)}</div>
+        <div class="ligne-docs">${documentsHtml(d)}${alerteManquants(d)}</div>
         ${etatGlobal(d)}
       </article>`;
   }
@@ -534,6 +560,13 @@
     el.btnSend.title = envoiOk ? "" : MESSAGE_NON_CONFIGURE;
     el.btnSyncDn.disabled = !sante.dn || !sante.grist || !synchroConfiguree;
     el.btnSyncDn.title = synchroConfiguree ? "" : MESSAGE_NON_CONFIGURE;
+    // Sélection contenant des dossiers incomplets : prévenir avant de lancer
+    const incomplets = allDossiers.filter((d) => selected.has(String(d.dossier_number)) && manquantsDe(d).length).length;
+    const alerte = document.getElementById("sel-manquants");
+    alerte.hidden = !incomplets;
+    alerte.textContent = incomplets
+      ? `${incomplets} dossier${incomplets > 1 ? "s" : ""} à compléter dans DN : ${incomplets > 1 ? "ils ne seront" : "il ne sera"} ni généré${incomplets > 1 ? "s" : ""} ni envoyé${incomplets > 1 ? "s" : ""}`
+      : "";
 
     const visibleIds = allDossiers
       .filter(matches)
@@ -684,6 +717,7 @@
         if (!d) continue;
         if (e.type === "genere") d.statuts = { ...(d.statuts || {}), [e.document]: "genere" };
         if (e.type === "envoye") d[e.champ] = true;
+        d.manquants = { ...(d.manquants || {}), [typeDoc(e.document)]: [] }; // vérifié complet côté serveur
         if (!deMoi) touches.add(e.dossier);
       }
       if (!deMoi) {
@@ -731,6 +765,26 @@
     if (document.visibilityState === "visible") suivreCollegues();
   });
 
+  // Fenêtre récapitulative : dossiers incomplets (à compléter dans DN) puis autres échecs
+  function signalerEchecs(action, participe, failed, incomplets) {
+    const nbIncomplets = Object.keys(incomplets).length;
+    const lignes = [
+      ...lignesManquants(incomplets),
+      ...Object.entries(failed).map(([n, msg]) => `<strong>#${n}</strong> — ${msg}`),
+    ];
+    if (!lignes.length) return;
+    if (nbIncomplets) {
+      lignes.push(`<em>Complétez les annotations privées de ${nbIncomplets > 1 ? "ces dossiers" : "ce dossier"} dans DN, puis relancez : les données sont relues à chaque ${action}.</em>`);
+    }
+    showInfoModal(
+      nbIncomplets && !Object.keys(failed).length
+        ? `${nbIncomplets} dossier${nbIncomplets > 1 ? "s" : ""} non ${participe} : éléments manquants dans DN`
+        : `Échec ${action === "envoi" ? "d'envoi" : "de génération"}`,
+      lignes,
+      "error",
+    );
+  }
+
   async function generateSelection() {
     const ids = Array.from(selected);
     if (ids.length === 0) return;
@@ -740,6 +794,7 @@
     showToastProgress(`Génération du ${DOCUMENTS[doc].nom}…`, 0, ids.length);
     let successCount = 0;
     const failed = {};
+    const incomplets = {};
 
     for (let i = 0; i < ids.length; i++) {
       const id = ids[i];
@@ -750,7 +805,16 @@
           body: JSON.stringify({ dossier_numbers: [id], document: doc }),
         });
         const data = await res.json();
+        if (data.manquants && data.manquants[id]) {
+          // vérifié côté serveur sur les données fraîches : rien n'a été généré
+          incomplets[id] = data.manquants[id];
+          noterManquants(id, doc, data.manquants[id]);
+          updateToastProgress(i + 1, ids.length);
+          render();
+          continue;
+        }
         if (!res.ok) throw new Error(data.error || "erreur inconnue");
+        noterManquants(id, doc, []);
         if (!data.generated || !data.generated.length)
           throw new Error("PDF non généré (filtré par should_be_exported ?)");
         const dossier = allDossiers.find(
@@ -771,14 +835,9 @@
       "Génération terminée",
       successCount,
       ids.length,
-      Object.keys(failed).length,
+      Object.keys(failed).length + Object.keys(incomplets).length,
     );
-    if (Object.keys(failed).length) {
-      const lines = Object.entries(failed).map(
-        ([n, msg]) => `<strong>#${n}</strong> — ${msg}`,
-      );
-      showInfoModal("Échec de génération", lines, "error");
-    }
+    signalerEchecs("génération", "générés", failed, incomplets);
     updateSelectionUI();
   }
 
@@ -817,6 +876,7 @@
     showToastProgress(`Envoi du ${DOCUMENTS[doc].nom}…`, 0, ids.length);
     let successCount = 0;
     const failed = {};
+    const incomplets = {};
 
     for (let i = 0; i < ids.length; i++) {
       const id = ids[i];
@@ -827,6 +887,13 @@
           body: JSON.stringify({ dossier_numbers: [id], document: doc }),
         });
         const data = await res.json();
+        if (data.manquants && data.manquants[id]) {
+          incomplets[id] = data.manquants[id];
+          noterManquants(id, doc, data.manquants[id]);
+          updateToastProgress(i + 1, ids.length);
+          render();
+          continue;
+        }
         if (data.failed && data.failed[id]) throw new Error(data.failed[id]);
         if (!res.ok && res.status !== 207)
           throw new Error(data.error || "erreur inconnue");
@@ -836,6 +903,7 @@
         if (dossier) {
           dossier[DOCUMENTS[doc].champ] = true;
         }
+        noterManquants(id, doc, []);
         successCount++;
       } catch (err) {
         failed[id] = err.message;
@@ -848,14 +916,9 @@
       "Envoi terminé",
       successCount,
       ids.length,
-      Object.keys(failed).length,
+      Object.keys(failed).length + Object.keys(incomplets).length,
     );
-    if (Object.keys(failed).length) {
-      const lines = Object.entries(failed).map(
-        ([n, msg]) => `<strong>#${n}</strong> — ${msg}`,
-      );
-      showInfoModal("Échec d'envoi", lines, "error");
-    }
+    signalerEchecs("envoi", "envoyés", failed, incomplets);
     updateSelectionUI();
   }
 

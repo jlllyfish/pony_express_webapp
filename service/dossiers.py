@@ -10,6 +10,7 @@ from pony_express.service.grist import GristService
 from pony_express.service.utils import clean_text, get_date_from_timestamp
 from pony_express.templates import contrat_pedagogique as kit
 
+from service import prerequis
 from service.grist_lecture import avec_repli, colonnes_jointes
 
 # Colonnes lues dans Demarche_128447_champs pour l'affichage de la carte
@@ -41,6 +42,7 @@ COLONNES_ANNOTATIONS = [
     "prenom_s_participant",
     "contrat_pedagogique_envoye_par_l_ensfea",
     "contrat_financier_envoye_par_l_ensfea",
+    *prerequis.colonnes("apprenants"),  # code projet, jours, montants saisis par les instructeurs
 ]
 COLONNES_CHAMPS = [
     CHAMP_ETABLISSEMENT, CHAMP_PAYS, CHAMP_DATE_TRAJET_ALLER,
@@ -85,6 +87,8 @@ def list_dossiers() -> list[dict]:
                 "date_fin_activite": _date(champ, CHAMP_DATE_FIN),
                 "envoye_pedagogique": bool(row.get("contrat_pedagogique_envoye_par_l_ensfea")),
                 "envoye_financier": bool(row.get("contrat_financier_envoye_par_l_ensfea")),
+                # éléments à saisir dans les annotations privées avant génération / envoi
+                "manquants": prerequis.manquants("apprenants", row),
                 # statut de génération par document, non persisté (mémoire de la session)
                 "statuts": {"pedagogique": "non_genere", "financier": "non_genere"},
             }
