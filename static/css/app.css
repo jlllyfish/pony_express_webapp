@@ -3027,6 +3027,49 @@ button.dash-kpi:focus-visible {
   overflow-y: auto;
 }
 
+/* Mises à jour faites par un collègue : bandeau discret + dossiers concernés surlignés */
+.maj-collegues {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  z-index: 90;
+  transform: translateX(-50%);
+  max-width: min(640px, calc(100% - 32px));
+  padding: 10px 18px 10px 38px;
+  border-radius: var(--radius-full);
+  background: var(--ink, #1e1d33);
+  color: #fff;
+  font-size: 13.5px;
+  line-height: 1.4;
+  box-shadow: 0 10px 30px rgba(25, 23, 71, 0.25);
+  animation: maj-entree 0.25s ease;
+}
+.maj-collegues::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin-top: -4.5px;
+  border-radius: 50%;
+  background: #5fd39a;
+  box-shadow: 0 0 0 4px rgba(95, 211, 154, 0.25);
+}
+@keyframes maj-entree {
+  from { opacity: 0; transform: translate(-50%, -8px); }
+}
+.is-maj {
+  animation: maj-surligne 2.4s ease;
+}
+@keyframes maj-surligne {
+  0%, 35% { box-shadow: 0 0 0 3px #5fd39a, 0 10px 26px rgba(95, 211, 154, 0.35); }
+  100% { box-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .maj-collegues, .is-maj { animation: none; }
+}
+
 /* =====================================================================
    Téléphone et petite tablette (≤ 820 px) — placé en dernier pour l'emporter
    sur la grille de la refonte : une seule colonne, la page défile, le rail

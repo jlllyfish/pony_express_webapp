@@ -25,7 +25,7 @@ from service.personnel import list_personnel
 from service.sante import etat_de_sante
 from service.generation import TEMPLATES, generate_document, generate_pieces
 
-from service import auth, journal, securite
+from service import auth, evenements, journal, securite
 from service import pdf as pdfs
 
 app = Flask(__name__)
@@ -47,6 +47,36 @@ securite.init_app(app)
 # Pas de base de données : le doc Grist est la source de vérité.
 # Ce cache mémoire évite de retaper Grist à chaque requête ; un restart le reconstruit.
 _cache = {"dossiers": None, "groupes": None, "personnel": None}
+
+
+CLE_CACHE = {"apprenants": "dossiers", "groupes": "groupes", "personnel": "personnel"}
+
+
+def _moi() -> tuple[str, str]:
+    """(e-mail, prénom) de l'utilisateur connecté, pour signer les évènements partagés."""
+    email = g.utilisateur["email"]
+    return email, auth.comptes.prenom_depuis_email(email)
+
+
+def _liste(vue: str, dossiers: list, **extra):
+    """Réponse d'une page de dossiers : statuts « généré » partagés + numéro de version des évènements."""
+    generes = evenements.statuts_generes(vue)
+    if request.args.get("refresh") == "1":
+        evenements.recharger(vue, *_moi())
+    return jsonify({
+        "dossiers": [{**d, "statuts": {**(d.get("statuts") or {}), **generes[str(d["dossier_number"])]}}
+                     if str(d["dossier_number"]) in generes else d for d in dossiers],
+        "etablissements": list_etablissements(dossiers),
+        "evenements": {"version": evenements.version(), "instance": evenements.INSTANCE},
+        **extra,
+    })
+
+
+def _marquer_envoye(document: str, dossier_number) -> None:
+    """Met à jour le cache serveur : un collègue qui ouvre la page voit l'envoi sans relire Grist."""
+    for d in _cache.get(CLE_CACHE[evenements.vue_du_document(document)]) or []:
+        if str(d["dossier_number"]) == str(dossier_number):
+            d[evenements.champ_envoi(document)] = True
 
 
 def get_dossiers(refresh: bool = False):
@@ -81,12 +111,17 @@ def index():
 def api_dossiers():
     """Liste des dossiers + valeurs distinctes pour le filtre établissement."""
     dossiers = get_dossiers(refresh=request.args.get("refresh") == "1")
-    return jsonify(
-        {
-            "dossiers": dossiers,
-            "etablissements": list_etablissements(dossiers),
-        }
-    )
+    return _liste("apprenants", dossiers)
+
+
+@app.get("/api/evenements")
+def api_evenements():
+    """Ce qui a changé depuis la version donnée (générations, envois, rechargements par d'autres)."""
+    try:
+        v = int(request.args.get("depuis", "0"))
+    except ValueError:
+        v = 0
+    return jsonify(evenements.depuis(v))
 
 
 @app.get("/api/sante")
@@ -122,7 +157,7 @@ def api_groupes():
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": str(exc)}), 500
     groupes = _cache["groupes"]
-    return jsonify({"dossiers": groupes, "etablissements": list_etablissements(groupes)})
+    return _liste("groupes", groupes)
 
 
 @app.get("/api/personnel")
@@ -134,23 +169,26 @@ def api_personnel():
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": str(exc)}), 500
     personnes = _cache["personnel"]
-    return jsonify({
-        "dossiers": personnes,
-        "etablissements": list_etablissements(personnes),
+    return _liste(
+        "personnel", personnes,
         # envoi / synchro DN possibles seulement si les identifiants DN sont configurés
-        "envoi": {d: not configuration_manquante(d) for d in ("pedagogique_personnel", "financier_personnel")},
-        "synchro": demarche_configuree("personnel"),
-    })
+        envoi={d: not configuration_manquante(d) for d in ("pedagogique_personnel", "financier_personnel")},
+        synchro=demarche_configuree("personnel"),
+    )
 
 
 @app.post("/api/dossiers/sync-dn")
 def api_sync_dn():
     """Vérifie en un seul passage groupé si le statut Grist correspond à la réalité DN, corrige si besoin."""
     payload = request.get_json(silent=True) or {}
+    vue = payload.get("demarche") or "apprenants"
     try:
-        resultat = synchroniser_statuts_pj_avec_dn(payload.get("demarche") or "apprenants")
+        resultat = synchroniser_statuts_pj_avec_dn(vue)
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": str(exc)}), 500
+    if vue in CLE_CACHE:
+        _cache[CLE_CACHE[vue]] = None  # statuts recalés dans Grist : prochaine lecture à jour pour tous
+        evenements.recharger(vue, *_moi())
     return jsonify(resultat)
 
 
@@ -176,6 +214,8 @@ def api_generate():
         return jsonify({"error": str(exc)}), 500
     # Vérification seulement : les PDF sont regénérés (données fraîches) au téléchargement et à l'envoi
     pdfs.supprimer(*(c for chemins in results.values() for c in chemins.values()))
+    if results:
+        evenements.genere(document, list(results.keys()), *_moi())
     return jsonify({"generated": list(results.keys())})
 
 
@@ -241,6 +281,8 @@ def _envoyer(document: str, dossier_numbers: list, pdf_paths: dict) -> tuple[lis
         try:
             envoyer_document(document, dossier_number, chemins)
             sent.append(dossier_number)
+            _marquer_envoye(document, dossier_number)
+            evenements.envoye(document, dossier_number, *_moi())
             journal.ecrire(g.utilisateur["email"], "envoi", document, dossier_number, "ok")
         except Exception as exc:  # noqa: BLE001
             failed[dossier_number] = str(exc)
