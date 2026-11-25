@@ -607,6 +607,7 @@
     }
     const data = await res.json();
     if (vueChargee !== vue) return; // la page a changé pendant le chargement
+    noterVersion(data.evenements);
     // PDF générés pendant la session : conservés au rechargement et au changement de page
     // (le serveur ne les mémorise pas ; sans ça, les liens de téléchargement disparaissent)
     const generes = statutsSession[vueChargee] || {};
@@ -616,13 +617,114 @@
     });
     envoiConfigure = data.envoi || {};
     synchroConfiguree = data.synchro !== false;
+    const etabChoisi = el.filterEtab.value; // conservé quand la liste est rechargée (mise à jour en direct)
     el.filterEtab.innerHTML =
       '<option value="">Tous les établissements</option>';
     populateEtablissements(data.etablissements);
+    if ([...el.filterEtab.options].some((o) => o.value === etabChoisi)) el.filterEtab.value = etabChoisi;
     render();
     el.btnRefresh.disabled = false;
     el.btnRefresh.classList.remove("is-loading");
   }
+
+  // --- Mises à jour en direct : générations et envois faits par les collègues -------------
+  // Toutes les 8 s (onglet visible), on demande au serveur ce qui a changé depuis la dernière
+  // version connue : requête légère, sans Grist ni DN. Rien à faire pour l'utilisateur.
+  const moi = document.body.dataset.utilisateur || "";
+  let evt = { version: null, instance: null };
+  let delaiNotice;
+
+  function noterVersion(info) {
+    if (!info) return;
+    if (evt.instance !== info.instance) evt = { version: info.version, instance: info.instance };
+    else evt.version = Math.max(evt.version ?? 0, info.version);
+  }
+
+  function annoncer(parQui) {
+    const phrases = Object.entries(parQui).map(([qui, c]) => {
+      const actions = [];
+      if (c.envoye) actions.push(`envoyé ${c.envoye} document${c.envoye > 1 ? "s" : ""} vers DN`);
+      if (c.genere) actions.push(`généré ${c.genere} document${c.genere > 1 ? "s" : ""}`);
+      if (c.recharger) actions.push("actualisé la liste");
+      return `${qui} a ${actions.join(" et ")}`;
+    });
+    if (!phrases.length) return;
+    const zone = document.getElementById("maj-collegues");
+    zone.textContent = `${phrases.join(" · ")}. Affichage mis à jour.`;
+    zone.hidden = false;
+    clearTimeout(delaiNotice);
+    delaiNotice = setTimeout(() => (zone.hidden = true), 6000);
+  }
+
+  function surligner(ids) {
+    ids.forEach((id) => {
+      const bloc = el.cards.querySelector(`[data-dossier="${CSS.escape(id)}"].carte, [data-dossier="${CSS.escape(id)}"].ligne`);
+      if (!bloc) return;
+      bloc.classList.remove("is-maj");
+      void bloc.offsetWidth; // relance l'animation
+      bloc.classList.add("is-maj");
+    });
+  }
+
+  function appliquerEvenements(liste) {
+    const touches = new Set();
+    const parQui = {};
+    let recharger = false;
+    for (const e of liste) {
+      const deMoi = e.par === moi;
+      if (e.type === "genere") {
+        const parVue = (statutsSession[e.vue] = statutsSession[e.vue] || {});
+        parVue[e.dossier] = { ...(parVue[e.dossier] || {}), [e.document]: "genere" };
+      }
+      if (e.vue !== vue) continue; // autre page : elle sera à jour à son ouverture
+      if (e.type === "recharger") {
+        if (!deMoi) recharger = true;
+      } else {
+        const d = allDossiers.find((x) => String(x.dossier_number) === e.dossier);
+        if (!d) continue;
+        if (e.type === "genere") d.statuts = { ...(d.statuts || {}), [e.document]: "genere" };
+        if (e.type === "envoye") d[e.champ] = true;
+        if (!deMoi) touches.add(e.dossier);
+      }
+      if (!deMoi) {
+        const c = (parQui[e.qui] = parQui[e.qui] || {});
+        c[e.type] = (c[e.type] || 0) + 1;
+      }
+    }
+    if (recharger) {
+      loadDossiers(false).then(() => annoncer(parQui));
+      return;
+    }
+    if (touches.size) {
+      render();
+      surligner(touches);
+    }
+    annoncer(parQui);
+  }
+
+  async function suivreCollegues() {
+    if (document.visibilityState !== "visible" || evt.version === null) return;
+    let data;
+    try {
+      const res = await fetch(`/api/evenements?depuis=${evt.version}`);
+      if (!res.ok) return; // session expirée, serveur en redémarrage… on réessaiera
+      data = await res.json();
+    } catch {
+      return;
+    }
+    if (data.instance !== evt.instance || data.recharger) {
+      // serveur redémarré ou trop de retard : on repart de la liste complète
+      evt = { version: data.version, instance: data.instance };
+      if (VUES[vue] && VUES[vue].api) loadDossiers(false);
+      return;
+    }
+    evt.version = data.version;
+    if (data.evenements.length) appliquerEvenements(data.evenements);
+  }
+  setInterval(suivreCollegues, 8000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") suivreCollegues();
+  });
 
   async function generateSelection() {
     const ids = Array.from(selected);

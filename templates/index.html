@@ -12,7 +12,7 @@
       href="{{ url_for('static', filename='css/app.css') }}"
     />
   </head>
-  <body>
+  <body data-utilisateur="{{ utilisateur }}">
     <nav class="rail" aria-label="Navigation principale">
       <div class="rail-icon-wrap">
         <a class="rail-icon rail-icon--active" href="#apprenants" data-view="apprenants" aria-current="page">
@@ -318,6 +318,7 @@
       </section>
     </main>
 
+    <div class="maj-collegues" id="maj-collegues" role="status" aria-live="polite" hidden></div>
     <footer class="app-footer">
       <nav class="app-footer-legal" aria-label="Informations légales">
         <a href="#">Mentions légales</a>
