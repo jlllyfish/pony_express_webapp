@@ -3044,6 +3044,9 @@ button.dash-kpi:focus-visible {
   flex-shrink: 0;
   margin-top: 1px;
 }
+.carte > .carte-manquants {
+  margin-bottom: 14px; /* respiration avant le pied de carte (établissement) */
+}
 .ligne-docs .carte-manquants {
   margin: 4px 0 0;
   grid-column: 1 / -1;
