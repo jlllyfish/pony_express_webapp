@@ -3027,6 +3027,43 @@ button.dash-kpi:focus-visible {
   overflow-y: auto;
 }
 
+/* Éléments à saisir dans les annotations privées DN (code projet, montants) */
+.carte-manquants {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fff4dc;
+  color: #7a4f00;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.carte-manquants svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.ligne-docs .carte-manquants {
+  margin: 4px 0 0;
+  grid-column: 1 / -1;
+}
+.barre-alerte {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  background: #fff4dc;
+  color: #7a4f00;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(25, 23, 71, 0.12);
+}
+
 /* Mises à jour faites par un collègue : bandeau discret + dossiers concernés surlignés */
 .maj-collegues {
   position: fixed;
@@ -3228,6 +3265,14 @@ button.dash-kpi:focus-visible {
   }
   .barre-actions-sel {
     grid-column: 1 / -1;
+  }
+  .barre-alerte {
+    position: static;
+    transform: none;
+    grid-column: 1 / -1;
+    white-space: normal;
+    border-radius: 10px;
+    box-shadow: none;
   }
   .barre-actions-sep {
     display: none;

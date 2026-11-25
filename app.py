@@ -9,6 +9,7 @@ load_dotenv()  # doit précéder les imports ci-dessous : ils lisent os.environ 
 import logging
 import secrets
 
+from markupsafe import escape
 from flask import Flask, g, jsonify, render_template, request, send_file
 
 from service.dn import (
@@ -25,7 +26,7 @@ from service.personnel import list_personnel
 from service.sante import etat_de_sante
 from service.generation import TEMPLATES, generate_document, generate_pieces
 
-from service import auth, evenements, journal, securite
+from service import auth, evenements, journal, prerequis, securite
 from service import pdf as pdfs
 
 app = Flask(__name__)
@@ -77,6 +78,33 @@ def _marquer_envoye(document: str, dossier_number) -> None:
     for d in _cache.get(CLE_CACHE[evenements.vue_du_document(document)]) or []:
         if str(d["dossier_number"]) == str(dossier_number):
             d[evenements.champ_envoi(document)] = True
+
+
+def _verifier_prerequis(document: str, dossier_numbers: list) -> tuple[list, dict]:
+    """Relit chaque dossier dans Grist : (dossiers complets, {dossier: [éléments manquants]}).
+
+    Met aussi à jour l'indication « à compléter » du cache, pour que la liste reflète la saisie.
+    """
+    complets, manquants = [], {}
+    for n in dossier_numbers:
+        try:
+            liste, tout = prerequis.verifier(document, n)
+        except Exception as exc:  # noqa: BLE001 - Grist injoignable : on ne génère pas à l'aveugle
+            manquants[str(n)] = [f"vérification impossible ({exc})"]
+            continue
+        if tout is not None:
+            for d in _cache.get(CLE_CACHE[prerequis.vue_du_document(document)]) or []:
+                if str(d["dossier_number"]) == str(n):
+                    d["manquants"] = tout
+        if liste:
+            manquants[str(n)] = liste
+        else:
+            complets.append(n)
+    return complets, manquants
+
+
+def _message_manquants(liste: list) -> str:
+    return "À compléter dans les annotations privées DN : " + ", ".join(liste)
 
 
 def get_dossiers(refresh: bool = False):
@@ -209,14 +237,19 @@ def api_generate():
         return jsonify({"error": "aucun dossier sélectionné"}), 400
     try:
         document = _document(payload.get("document"))
-        results = generate_pieces(document, dossier_numbers)
+        # Code projet, jours, montants : sans eux, pas de génération
+        complets, manquants = _verifier_prerequis(document, dossier_numbers)
+        results = generate_pieces(document, complets) if complets else {}
     except Exception as exc:  # noqa: BLE001 - on renvoie l'erreur telle quelle pour debug en V1
         return jsonify({"error": str(exc)}), 500
     # Vérification seulement : les PDF sont regénérés (données fraîches) au téléchargement et à l'envoi
     pdfs.supprimer(*(c for chemins in results.values() for c in chemins.values()))
     if results:
         evenements.genere(document, list(results.keys()), *_moi())
-    return jsonify({"generated": list(results.keys())})
+    if manquants and not results:
+        return jsonify({"error": "Éléments manquants dans les annotations privées", "manquants": manquants,
+                        "generated": []}), 422
+    return jsonify({"generated": list(results.keys()), "manquants": manquants})
 
 
 @app.get("/api/kits/<dossier_number>/download")
@@ -226,6 +259,14 @@ def api_download(dossier_number):
         pdf = request.args.get("document") or "pedagogique"
         if pdf not in TEMPLATES:
             raise ValueError(f"PDF inconnu : {pdf}")
+        _, manquants = _verifier_prerequis(pdf, [dossier_number])
+        if manquants:
+            message = _message_manquants(manquants[str(dossier_number)])
+            journal.ecrire(g.utilisateur["email"], "telechargement", pdf, dossier_number, "erreur", message)
+            # lien ouvert directement par le navigateur : une page lisible plutôt que du JSON
+            return (f"<!doctype html><meta charset='utf-8'><title>Document incomplet</title>"
+                    f"<p style='font:16px system-ui;margin:40px'>Dossier {escape(str(dossier_number))} : "
+                    f"{escape(message)}.</p>"), 422
         results = generate_document(pdf, [dossier_number])
     except Exception as exc:  # noqa: BLE001
         journal.ecrire(g.utilisateur["email"], "telechargement", request.args.get("document"), dossier_number,
@@ -255,19 +296,25 @@ def api_send():
 
     try:
         document = _document(payload.get("document"))
-        pdf_paths = generate_pieces(document, dossier_numbers)
+        complets, manquants = _verifier_prerequis(document, dossier_numbers)
+        pdf_paths = generate_pieces(document, complets) if complets else {}
     except Exception as exc:  # noqa: BLE001
         for dossier_number in dossier_numbers:
             journal.ecrire(g.utilisateur["email"], "envoi", payload.get("document"), dossier_number,
                            "erreur", f"génération échouée : {exc}")
         return jsonify({"error": f"génération échouée : {exc}"}), 500
 
+    for n, liste in manquants.items():
+        journal.ecrire(g.utilisateur["email"], "envoi", document, n, "erreur", _message_manquants(liste))
     try:
-        sent, failed = _envoyer(document, dossier_numbers, pdf_paths)
+        sent, failed = _envoyer(document, complets, pdf_paths)
     finally:
         pdfs.supprimer(*(c for chemins in pdf_paths.values() for c in chemins.values()))
-    status_code = 200 if not failed else 207  # 207 Multi-Status : succès partiel
-    return jsonify({"sent": sent, "failed": failed}), status_code
+    if manquants and not sent and not failed:
+        return jsonify({"error": "Éléments manquants dans les annotations privées", "manquants": manquants,
+                        "sent": [], "failed": {}}), 422
+    status_code = 200 if not failed and not manquants else 207  # 207 Multi-Status : succès partiel
+    return jsonify({"sent": sent, "failed": failed, "manquants": manquants}), status_code
 
 
 def _envoyer(document: str, dossier_numbers: list, pdf_paths: dict) -> tuple[list, dict]:
