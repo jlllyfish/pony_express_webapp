@@ -707,7 +707,12 @@
     let data;
     try {
       const res = await fetch(`/api/evenements?depuis=${evt.version}`);
-      if (!res.ok) return; // session expirée, serveur en redémarrage… on réessaiera
+      if (res.status === 401) {
+        // session expirée (12 h) ou compte désactivé : retour à la connexion plutôt qu'une page figée
+        window.location.href = "/connexion";
+        return;
+      }
+      if (!res.ok) return; // serveur en redémarrage… on réessaiera
       data = await res.json();
     } catch {
       return;
