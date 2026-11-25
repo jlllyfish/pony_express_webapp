@@ -3,7 +3,7 @@
 {% block formulaire %}
   <p class="consigne">
     <b>Double authentification activée.</b> Notez ces codes de secours et rangez-les en lieu sûr :
-    chacun permet <b>une</b> connexion si vous perdez votre téléphone. Ils ne seront plus affichés.
+    chacun permet <b>une</b> connexion si vous n'avez plus accès à votre application d'authentification. Ils ne seront plus affichés.
   </p>
   <ol class="codes">
     {% for c in codes %}<li><code>{{ c }}</code></li>{% endfor %}
